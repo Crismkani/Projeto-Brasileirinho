@@ -25,26 +25,26 @@ public record MovimentacaoRecente(
 
 public interface IServicoFluxoCaixa
 {
-    Task<ResumoFluxoCaixa> ObterResumoAsync(
+    public Task<ResumoFluxoCaixa> ObterResumoAsync(
         DateOnly de,
         DateOnly ate,
         CancellationToken ct = default);
 
-    Task<IReadOnlyList<PontoSerieFluxo>> ObterSerieMensalAsync(
+    public Task<IReadOnlyList<PontoSerieFluxo>> ObterSerieMensalAsync(
         int meses,
         CancellationToken ct = default);
 
-    Task<IReadOnlyList<DespesaFornecedor>> ObterDespesasPorFornecedorAsync(
+    public Task<IReadOnlyList<DespesaFornecedor>> ObterDespesasPorFornecedorAsync(
         DateOnly de,
         DateOnly ate,
         int top,
         CancellationToken ct = default);
 
-    Task<IReadOnlyList<MovimentacaoRecente>> ObterUltimasMovimentacoesAsync(
+    public Task<IReadOnlyList<MovimentacaoRecente>> ObterUltimasMovimentacoesAsync(
         int qtd,
         CancellationToken ct = default);
 
-    Task<int> ContarVendasAsync(
+    public Task<int> ContarVendasAsync(
         DateOnly de,
         DateOnly ate,
         CancellationToken ct = default);

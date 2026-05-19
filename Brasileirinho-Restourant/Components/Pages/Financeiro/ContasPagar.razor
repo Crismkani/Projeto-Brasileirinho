@@ -330,7 +330,7 @@
     private string? mensagem;
     private string classeMensagem = "alert-success";
 
-    private record ResumoCards(decimal Pendente, int QtdPendente, decimal Atrasado, int QtdAtrasado, decimal Pago, int QtdPago);
+    private sealed record ResumoCards(decimal Pendente, int QtdPendente, decimal Atrasado, int QtdAtrasado, decimal Pago, int QtdPago);
     private ResumoCards? resumo;
 
     protected override async Task OnInitializedAsync()
@@ -368,7 +368,6 @@
 
         // Sempre carregar todos pendentes/pagos para os cards de resumo
         var todos = await Servico.ListarAsync();
-        var hoje = DateOnly.FromDateTime(DateTime.Today);
         resumo = new ResumoCards(
             Pendente: todos.Where(c => c.Status == StatusContaPagar.Pendente && !c.Atrasado).Sum(c => c.Valor),
             QtdPendente: todos.Count(c => c.Status == StatusContaPagar.Pendente && !c.Atrasado),
@@ -510,7 +509,7 @@
 
     private void MostrarMensagem(string msg, string classe) { mensagem = msg; classeMensagem = classe; }
 
-    private RenderFragment BadgeStatus(ContaPagar c) => c.Status switch
+    private static RenderFragment BadgeStatus(ContaPagar c) => c.Status switch
     {
         StatusContaPagar.Pago      => @<span class="badge bg-success">Pago</span>,
         StatusContaPagar.Cancelado => @<span class="badge bg-secondary">Cancelado</span>,

@@ -121,7 +121,7 @@ else if (resumo is not null)
 }
 
 @code {
-    private DateOnly de = DateOnly.FromDateTime(new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1));
+    private DateOnly de = new(DateTime.Today.Year, DateTime.Today.Month, 1);
     private DateOnly ate = DateOnly.FromDateTime(DateTime.Today);
     private ResumoFluxoCaixa? resumo;
     private bool carregando;

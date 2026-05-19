@@ -6,7 +6,7 @@ namespace BrasileirinhoRestourant.Application.Services;
 
 public class ServicoBase<T> : IServicoBase<T> where T : EntityBase
 {
-    protected readonly IRepository<T> Repositorio;
+    protected IRepository<T> Repositorio { get; }
 
     public ServicoBase(IRepository<T> repositorio)
     {
@@ -21,7 +21,9 @@ public class ServicoBase<T> : IServicoBase<T> where T : EntityBase
         var lista = await Repositorio.ListarAsync(cancellationToken);
 
         if (somenteAtivos)
+        {
             lista = lista.Where(e => e.Ativo).ToList();
+        }
 
         if (!string.IsNullOrWhiteSpace(filtroTexto))
         {
@@ -40,7 +42,9 @@ public class ServicoBase<T> : IServicoBase<T> where T : EntityBase
         await ValidarAsync(entidade, cancellationToken);
 
         if (entidade.Id == 0)
+        {
             return await Repositorio.AdicionarAsync(entidade, cancellationToken);
+        }
 
         await Repositorio.AtualizarAsync(entidade, cancellationToken);
         return entidade;
@@ -71,10 +75,16 @@ public class ServicoBase<T> : IServicoBase<T> where T : EntityBase
         T entidade, CancellationToken cancellationToken = default)
     {
         var nomeProp = typeof(T).GetProperty("Nome");
-        if (nomeProp is null) return Array.Empty<T>();
+        if (nomeProp is null)
+        {
+            return Array.Empty<T>();
+        }
 
         var nome = (nomeProp.GetValue(entidade) as string)?.Trim();
-        if (string.IsNullOrWhiteSpace(nome)) return Array.Empty<T>();
+        if (string.IsNullOrWhiteSpace(nome))
+        {
+            return Array.Empty<T>();
+        }
 
         var todos = await Repositorio.ListarAsync(cancellationToken);
         return todos
@@ -103,7 +113,9 @@ public class ServicoBase<T> : IServicoBase<T> where T : EntityBase
             var valor = p.GetValue(entidade) as string;
             if (!string.IsNullOrEmpty(valor) &&
                 valor.Contains(termo, StringComparison.OrdinalIgnoreCase))
+            {
                 return true;
+            }
         }
         return false;
     }

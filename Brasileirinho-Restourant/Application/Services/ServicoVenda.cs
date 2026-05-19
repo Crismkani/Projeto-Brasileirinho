@@ -16,7 +16,9 @@ public class ServicoVenda : IServicoVenda
     public async Task<Venda> FinalizarAsync(Venda venda, CancellationToken cancellationToken = default)
     {
         if (venda.Itens.Count == 0)
+        {
             throw new InvalidOperationException("A venda deve ter ao menos um item.");
+        }
 
         venda.RecalcularTotal();
 
@@ -30,7 +32,9 @@ public class ServicoVenda : IServicoVenda
         foreach (var item in venda.Itens)
         {
             if (!produtos.TryGetValue(item.ProdutoId, out var produto))
+            {
                 throw new InvalidOperationException($"Produto #{item.ProdutoId} não encontrado.");
+            }
 
             var baixa = item.Fracionado
                 ? Math.Max(item.PesoBruto - item.Tara, 0m)

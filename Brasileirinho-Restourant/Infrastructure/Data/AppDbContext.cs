@@ -33,10 +33,16 @@ public class AppDbContext : DbContext
         // Mapeia colunas herdadas (id, ativo, data_cadastro, ultima_modificacao) com sufixo da tabela.
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
-            if (!typeof(EntityBase).IsAssignableFrom(entityType.ClrType)) continue;
+            if (!typeof(EntityBase).IsAssignableFrom(entityType.ClrType))
+            {
+                continue;
+            }
 
             var tabela = entityType.GetTableName();
-            if (string.IsNullOrEmpty(tabela)) continue;
+            if (string.IsNullOrEmpty(tabela))
+            {
+                continue;
+            }
 
             var eb = modelBuilder.Entity(entityType.ClrType);
             eb.Property(nameof(EntityBase.Id)).HasColumnName($"id_{tabela}");

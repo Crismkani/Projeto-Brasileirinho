@@ -9,14 +9,16 @@ public static class MensagensErro
         if (ex.GetBaseException() is PostgresException pg)
         {
             if (pg.SqlState == "23505")
+            {
                 return TraduzirUnico(pg.ConstraintName);
+            }
 
             return pg.SqlState switch
             {
                 "23503" => "Este registro está vinculado a outros cadastros (ex.: produtos, vendas) " +
                            "e não pode ser excluído. Inative-o ao invés de excluir.",
                 "23502" => "Há campos obrigatórios não preenchidos.",
-                _       => $"Erro do banco de dados ({pg.SqlState}): {pg.MessageText}"
+                _ => $"Erro do banco de dados ({pg.SqlState}): {pg.MessageText}"
             };
         }
 

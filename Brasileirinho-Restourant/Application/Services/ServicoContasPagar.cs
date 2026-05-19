@@ -32,16 +32,24 @@ public class ServicoContasPagar : IServicoContasPagar
             .AsQueryable();
 
         if (status.HasValue)
+        {
             query = query.Where(c => c.Status == status.Value);
+        }
 
         if (vencimentoDe.HasValue)
+        {
             query = query.Where(c => c.DataVencimento >= vencimentoDe.Value);
+        }
 
         if (vencimentoAte.HasValue)
+        {
             query = query.Where(c => c.DataVencimento <= vencimentoAte.Value);
+        }
 
         if (fornecedorId.HasValue)
+        {
             query = query.Where(c => c.FornecedorId == fornecedorId.Value);
+        }
 
         var lista = await query.OrderBy(c => c.DataVencimento).ToListAsync(ct);
 
@@ -61,13 +69,24 @@ public class ServicoContasPagar : IServicoContasPagar
     public async Task<ContaPagar> SalvarAsync(ContaPagar conta, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(conta.Descricao))
+        {
             throw new InvalidOperationException("Descrição é obrigatória.");
+        }
+
         if (conta.Valor <= 0)
+        {
             throw new InvalidOperationException("Valor deve ser maior que zero.");
+        }
+
         if (conta.DataVencimento == default)
+        {
             throw new InvalidOperationException("Data de vencimento é obrigatória.");
+        }
+
         if (conta.DataVencimento < conta.DataEmissao)
+        {
             throw new InvalidOperationException("Data de vencimento não pode ser anterior à data de emissão.");
+        }
 
         await using var ctx = await _factory.CreateDbContextAsync(ct);
 
@@ -96,7 +115,9 @@ public class ServicoContasPagar : IServicoContasPagar
         CancellationToken ct = default)
     {
         if (valorPago <= 0)
+        {
             throw new InvalidOperationException("Valor pago deve ser maior que zero.");
+        }
 
         await using var ctx = await _factory.CreateDbContextAsync(ct);
 
@@ -104,7 +125,9 @@ public class ServicoContasPagar : IServicoContasPagar
             ?? throw new InvalidOperationException($"Conta #{id} não encontrada.");
 
         if (conta.Status != StatusContaPagar.Pendente)
+        {
             throw new InvalidOperationException("Apenas contas pendentes podem ser pagas.");
+        }
 
         conta.Status = StatusContaPagar.Pago;
         conta.DataPagamento = dataPagamento;
@@ -122,7 +145,9 @@ public class ServicoContasPagar : IServicoContasPagar
             ?? throw new InvalidOperationException($"Conta #{id} não encontrada.");
 
         if (conta.Status == StatusContaPagar.Pago)
+        {
             throw new InvalidOperationException("Conta já paga não pode ser cancelada.");
+        }
 
         conta.Status = StatusContaPagar.Cancelado;
         await ctx.SaveChangesAsync(ct);
@@ -133,10 +158,15 @@ public class ServicoContasPagar : IServicoContasPagar
         await using var ctx = await _factory.CreateDbContextAsync(ct);
 
         var conta = await ctx.ContasPagar.FindAsync(new object[] { id }, ct);
-        if (conta is null) return;
+        if (conta is null)
+        {
+            return;
+        }
 
         if (conta.Status == StatusContaPagar.Pago)
+        {
             throw new InvalidOperationException("Conta já paga não pode ser excluída. Cancele primeiro.");
+        }
 
         ctx.ContasPagar.Remove(conta);
         await ctx.SaveChangesAsync(ct);

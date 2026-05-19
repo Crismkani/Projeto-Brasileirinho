@@ -11,7 +11,9 @@ var builder = WebApplication.CreateBuilder(args);
 // Sem chave o componente renderiza com um aviso de licença, mas continua funcional para dev.
 var syncfusionKey = builder.Configuration["Syncfusion:LicenseKey"];
 if (!string.IsNullOrWhiteSpace(syncfusionKey))
+{
     Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense(syncfusionKey);
+}
 
 // MaximumReceiveMessageSize: o default do Blazor Server é 32 KB, insuficiente para uploads.
 builder.Services.AddRazorComponents()
@@ -55,4 +57,4 @@ app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-app.Run();
+await app.RunAsync();

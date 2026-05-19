@@ -18,11 +18,15 @@ public class ArmazenamentoFotos : IArmazenamentoFotos
     public async Task<string> SalvarAsync(IBrowserFile arquivo, CancellationToken cancellationToken = default)
     {
         if (arquivo.Size > MaxBytes)
+        {
             throw new InvalidOperationException("Arquivo maior que 2 MB.");
+        }
 
         var ext = Path.GetExtension(arquivo.Name).ToLowerInvariant();
         if (!ExtensoesPermitidas.Contains(ext))
+        {
             throw new InvalidOperationException("Use imagens JPG, PNG ou WebP.");
+        }
 
         var pastaAbs = Path.Combine(_env.WebRootPath, SubPasta);
         Directory.CreateDirectory(pastaAbs);
@@ -39,10 +43,16 @@ public class ArmazenamentoFotos : IArmazenamentoFotos
 
     public void Remover(string? urlRelativa)
     {
-        if (string.IsNullOrWhiteSpace(urlRelativa)) return;
+        if (string.IsNullOrWhiteSpace(urlRelativa))
+        {
+            return;
+        }
 
         var caminhoAbs = Path.Combine(_env.WebRootPath, urlRelativa.TrimStart('/'));
-        if (!File.Exists(caminhoAbs)) return;
+        if (!File.Exists(caminhoAbs))
+        {
+            return;
+        }
 
         try { File.Delete(caminhoAbs); }
         catch { /* arquivo órfão não é crítico — segue */ }

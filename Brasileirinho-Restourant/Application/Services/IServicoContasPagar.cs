@@ -4,7 +4,7 @@ namespace BrasileirinhoRestourant.Application.Services;
 
 public interface IServicoContasPagar
 {
-    Task<IReadOnlyList<ContaPagar>> ListarAsync(
+    public Task<IReadOnlyList<ContaPagar>> ListarAsync(
         StatusContaPagar? status = null,
         DateOnly? vencimentoDe = null,
         DateOnly? vencimentoAte = null,
@@ -12,16 +12,16 @@ public interface IServicoContasPagar
         string? texto = null,
         CancellationToken ct = default);
 
-    Task<ContaPagar> SalvarAsync(ContaPagar conta, CancellationToken ct = default);
+    public Task<ContaPagar> SalvarAsync(ContaPagar conta, CancellationToken ct = default);
 
-    Task RegistrarPagamentoAsync(
+    public Task RegistrarPagamentoAsync(
         long id,
         DateOnly dataPagamento,
         decimal valorPago,
         long? formaPagamentoId,
         CancellationToken ct = default);
 
-    Task CancelarAsync(long id, CancellationToken ct = default);
+    public Task CancelarAsync(long id, CancellationToken ct = default);
 
-    Task ExcluirAsync(long id, CancellationToken ct = default);
+    public Task ExcluirAsync(long id, CancellationToken ct = default);
 }

@@ -7,7 +7,7 @@ namespace BrasileirinhoRestourant.Infrastructure.Repositories;
 
 public class Repository<T> : IRepository<T> where T : EntityBase
 {
-    protected readonly IDbContextFactory<AppDbContext> Factory;
+    protected IDbContextFactory<AppDbContext> Factory { get; }
 
     public Repository(IDbContextFactory<AppDbContext> factory)
     {
@@ -53,7 +53,10 @@ public class Repository<T> : IRepository<T> where T : EntityBase
     {
         await using var contexto = await Factory.CreateDbContextAsync(cancellationToken);
         var entidade = await contexto.Set<T>().FindAsync(new object[] { id }, cancellationToken);
-        if (entidade is null) return;
+        if (entidade is null)
+        {
+            return;
+        }
 
         contexto.Set<T>().Remove(entidade);
         await contexto.SaveChangesAsync(cancellationToken);

@@ -112,18 +112,14 @@
 
         <div class="col-md-8">
             <label class="form-label">
-                @(editando.Estrangeiro
-                    ? "Nome Completo / Razão Social"
-                    : editando.TipoPessoa == TipoPessoa.Fisica ? "Nome Completo" : "Razão Social")
+                @LabelNome
                 <span class="text-danger">*</span>
             </label>
             <input class="form-control" maxlength="255" @bind="editando.Nome" />
         </div>
         <div class="col-md-4">
             <label class="form-label">
-                @(editando.Estrangeiro
-                    ? "Documento / Passaporte"
-                    : editando.TipoPessoa == TipoPessoa.Fisica ? "CPF" : "CNPJ")
+                @LabelDocumento
             </label>
             <input class="form-control"
                    maxlength="@(editando.Estrangeiro ? 30 : Documento.TamanhoEsperado(editando.TipoPessoa))"
@@ -247,6 +243,20 @@
     private bool modalAberto, salvando;
     private string? erro;
     private Cliente editando = new();
+
+    private string LabelNome => (editando.Estrangeiro, editando.TipoPessoa) switch
+    {
+        (true, _) => "Nome Completo / Razão Social",
+        (false, TipoPessoa.Fisica) => "Nome Completo",
+        _ => "Razão Social"
+    };
+
+    private string LabelDocumento => (editando.Estrangeiro, editando.TipoPessoa) switch
+    {
+        (true, _) => "Documento / Passaporte",
+        (false, TipoPessoa.Fisica) => "CPF",
+        _ => "CNPJ"
+    };
 
     private bool modalCidadeAberto, salvandoCidade;
     private string? erroCidade;

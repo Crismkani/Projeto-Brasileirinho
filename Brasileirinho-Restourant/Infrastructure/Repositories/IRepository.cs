@@ -5,21 +5,21 @@ namespace BrasileirinhoRestourant.Infrastructure.Repositories;
 
 public interface IRepository<T> where T : EntityBase
 {
-    Task<T?> ObterPorIdAsync(long id, CancellationToken cancellationToken = default);
+    public Task<T?> ObterPorIdAsync(long id, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<T>> ListarAsync(CancellationToken cancellationToken = default);
+    public Task<IReadOnlyList<T>> ListarAsync(CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<T>> BuscarAsync(
+    public Task<IReadOnlyList<T>> BuscarAsync(
         Expression<Func<T, bool>> filtro,
         CancellationToken cancellationToken = default);
 
-    Task<T> AdicionarAsync(T entidade, CancellationToken cancellationToken = default);
+    public Task<T> AdicionarAsync(T entidade, CancellationToken cancellationToken = default);
 
-    Task AtualizarAsync(T entidade, CancellationToken cancellationToken = default);
+    public Task AtualizarAsync(T entidade, CancellationToken cancellationToken = default);
 
-    Task RemoverAsync(long id, CancellationToken cancellationToken = default);
+    public Task RemoverAsync(long id, CancellationToken cancellationToken = default);
 
-    Task<bool> ExisteAsync(
+    public Task<bool> ExisteAsync(
         Expression<Func<T, bool>> filtro,
         CancellationToken cancellationToken = default);
 }

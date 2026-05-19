@@ -44,7 +44,11 @@ public class ComandaItem : EntityBase
         if (Fracionado)
         {
             var pesoLiquido = PesoBruto - Tara;
-            if (pesoLiquido < 0m) pesoLiquido = 0m;
+            if (pesoLiquido < 0m)
+            {
+                pesoLiquido = 0m;
+            }
+
             Subtotal = decimal.Round(pesoLiquido * PrecoUnitario, 2, MidpointRounding.AwayFromZero);
         }
         else

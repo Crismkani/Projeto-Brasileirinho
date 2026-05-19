@@ -282,7 +282,7 @@
     private string? mensagem;
     private string classeMensagem = "alert-success";
 
-    private record ResumoCards(decimal Pendente, int QtdPendente, decimal Atrasado, int QtdAtrasado, decimal Recebido, int QtdRecebido);
+    private sealed record ResumoCards(decimal Pendente, int QtdPendente, decimal Atrasado, int QtdAtrasado, decimal Recebido, int QtdRecebido);
     private ResumoCards? resumo;
 
     protected override async Task OnInitializedAsync()
@@ -430,7 +430,7 @@
         finally { salvando = false; }
     }
 
-    private RenderFragment BadgeStatus(ContaReceber c) => c.Status switch
+    private static RenderFragment BadgeStatus(ContaReceber c) => c.Status switch
     {
         StatusContaReceber.Recebido  => @<span class="badge bg-success">Recebido</span>,
         StatusContaReceber.Cancelado => @<span class="badge bg-secondary">Cancelado</span>,

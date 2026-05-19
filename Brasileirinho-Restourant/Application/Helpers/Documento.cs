@@ -19,13 +19,22 @@ public static class Documento
     public static string Formatar(string? valor, TipoPessoa tipo)
     {
         var d = SomenteDigitos(valor);
-        if (d.Length == 0) return string.Empty;
+        if (d.Length == 0)
+        {
+            return string.Empty;
+        }
 
-        return tipo == TipoPessoa.Fisica && d.Length == 11
-            ? $"{d[..3]}.{d.Substring(3, 3)}.{d.Substring(6, 3)}-{d.Substring(9, 2)}"
-            : tipo == TipoPessoa.Juridica && d.Length == 14
-                ? $"{d[..2]}.{d.Substring(2, 3)}.{d.Substring(5, 3)}/{d.Substring(8, 4)}-{d.Substring(12, 2)}"
-                : d;
+        if (tipo == TipoPessoa.Fisica && d.Length == 11)
+        {
+            return $"{d[..3]}.{d.Substring(3, 3)}.{d.Substring(6, 3)}-{d.Substring(9, 2)}";
+        }
+
+        if (tipo == TipoPessoa.Juridica && d.Length == 14)
+        {
+            return $"{d[..2]}.{d.Substring(2, 3)}.{d.Substring(5, 3)}/{d.Substring(8, 4)}-{d.Substring(12, 2)}";
+        }
+
+        return d;
     }
 
     public static TipoPessoa InferirTipo(string? valor)

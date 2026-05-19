@@ -73,7 +73,10 @@ public class ServicoFluxoCaixa : IServicoFluxoCaixa
         int meses,
         CancellationToken ct = default)
     {
-        if (meses < 1) meses = 1;
+        if (meses < 1)
+        {
+            meses = 1;
+        }
 
         await using var ctx = await _factory.CreateDbContextAsync(ct);
 
@@ -115,7 +118,7 @@ public class ServicoFluxoCaixa : IServicoFluxoCaixa
             var saida = pagamentos.FirstOrDefault(x => x.Year == ano && x.Month == mes)?.Total ?? 0m;
 
             pontos.Add(new PontoSerieFluxo(
-                Periodo: new DateTime(ano, mes, 1),
+                Periodo: new DateTime(ano, mes, 1, 0, 0, 0, DateTimeKind.Unspecified),
                 Entradas: entradaVendas + entradaReceb,
                 Saidas: saida
             ));
@@ -130,7 +133,10 @@ public class ServicoFluxoCaixa : IServicoFluxoCaixa
         int top,
         CancellationToken ct = default)
     {
-        if (top < 1) top = 10;
+        if (top < 1)
+        {
+            top = 10;
+        }
 
         await using var ctx = await _factory.CreateDbContextAsync(ct);
 
@@ -167,7 +173,10 @@ public class ServicoFluxoCaixa : IServicoFluxoCaixa
         int qtd,
         CancellationToken ct = default)
     {
-        if (qtd < 1) qtd = 10;
+        if (qtd < 1)
+        {
+            qtd = 10;
+        }
 
         await using var ctx = await _factory.CreateDbContextAsync(ct);
 
