@@ -1,0 +1,43 @@
+@typeparam TItem
+
+<ConfirmDialog Visivel="@Visivel"
+               Titulo="@($"Já existe {Quantidade} registro(s) com esse nome")"
+               TextoConfirmar="Salvar mesmo assim"
+               TextoCancelar="Revisar"
+               Cor="ConfirmDialog.CorAcao.Aviso"
+               Processando="@Processando"
+               AoConfirmar="AoConfirmar"
+               AoCancelar="AoCancelar">
+    <p>Encontrei estes registros com o mesmo nome:</p>
+    <ul class="mb-2">
+        @if (Itens is not null)
+        {
+            @foreach (var item in Itens)
+            {
+                <li>
+                    <strong>@Rotulo(item)</strong>
+                    <span class="text-muted small">(Id @ObterId(item))</span>
+                </li>
+            }
+        }
+    </ul>
+    <p class="text-muted small mb-0">
+        Confirma a criação de um duplicado? Em geral isso indica erro de digitação ou um cadastro existente que pode ser editado.
+    </p>
+</ConfirmDialog>
+
+@code {
+    [Parameter] public bool Visivel { get; set; }
+    [Parameter] public IReadOnlyList<TItem>? Itens { get; set; }
+    [Parameter] public bool Processando { get; set; }
+    [Parameter] public EventCallback AoConfirmar { get; set; }
+    [Parameter] public EventCallback AoCancelar { get; set; }
+
+    private int Quantidade => Itens?.Count ?? 0;
+
+    private static string Rotulo(TItem item)
+        => (typeof(TItem).GetProperty("Nome")?.GetValue(item) as string) ?? "—";
+
+    private static long ObterId(TItem item)
+        => (long)(typeof(TItem).GetProperty("Id")?.GetValue(item) ?? 0L);
+}

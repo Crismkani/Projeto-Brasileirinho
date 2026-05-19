@@ -1,0 +1,56 @@
+# Visual Studio / Rider / VS Code
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build output
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Rider / ReSharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+
+# .NET
+*.swp
+*.*~
+project.lock.json
+.DS_Store
+*.pyc
+nupkg/
+*.nupkg
+artifacts/
+
+# ASP.NET
+appsettings.Development.json
+appsettings.Local.json
+appsettings.Production.json
+
+# Claude Code workspace
+.claude/
+
+# Uploads gerados pelo app (mantém as pastas via .gitkeep)
+Brasileirinho-Restourant/wwwroot/uploads/**
+!Brasileirinho-Restourant/wwwroot/uploads/.gitkeep
+!Brasileirinho-Restourant/wwwroot/uploads/**/.gitkeep
+Brasileirinho-Restourant/wwwroot/notas/**
+!Brasileirinho-Restourant/wwwroot/notas/.gitkeep
+!Brasileirinho-Restourant/wwwroot/notas/**/.gitkeep
+
+# Dumps de banco (contêm dados reais)
+*.backup
+banco-brasileirinho-atual.sql
+
+# Arquivos temporários / lixo
+Untitled.png
+*.tmp
+*.bak
+
+# User Secrets (já fora do projeto por padrão, mas paranoia extra)
+secrets.json

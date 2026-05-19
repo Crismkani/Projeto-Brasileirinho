@@ -1,0 +1,548 @@
+@page "/cadastros/produtos"
+@rendermode InteractiveServer
+
+@inject IServicoBase<Produto> ServicoProduto
+@inject IServicoBase<Categoria> ServicoCategoria
+@inject IServicoBase<Marca> ServicoMarca
+@inject IServicoBase<UnidadeMedida> ServicoUnidade
+@inject IArmazenamentoFotos Fotos
+
+<PageTitle>Produtos</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">Produtos</h1>
+    <button class="btn btn-primary" @onclick="AbrirNovo">Novo</button>
+</div>
+
+<div class="row g-2 mb-3">
+    <div class="col-md-6">
+        <input class="form-control" placeholder="Filtrar..."
+               @bind="filtro" @bind:event="oninput" @bind:after="CarregarAsync" />
+    </div>
+    <div class="col-md-3">
+        <div class="form-check mt-2">
+            <input class="form-check-input" type="checkbox" id="ativos"
+                   @bind="apenasAtivos" @bind:after="CarregarAsync" />
+            <label class="form-check-label" for="ativos">Apenas ativos</label>
+        </div>
+    </div>
+</div>
+
+<TabelaListagem TItem="Produto"
+                Itens="@itens"
+                Cabecalhos="@(new[] { "Id", "Foto", "Nome", "Cód. Barras", "Categoria", "Marca", "UM", "Vlr. Venda", "Estoque", "Pesagem", "Ativo" })">
+    <LinhaTemplate>
+        <td>@context.Id</td>
+        <td style="width: 60px;">
+            @if (!string.IsNullOrEmpty(context.FotoUrl))
+            {
+                <img src="@context.FotoUrl" alt="@context.Nome"
+                     style="width: 48px; height: 48px; object-fit: cover; border-radius: 4px;" />
+            }
+            else
+            {
+                <span class="text-muted small">—</span>
+            }
+        </td>
+        <td>@context.Nome</td>
+        <td><code>@context.CodigoBarras</code></td>
+        <td>@(Nome(categorias, context.CategoriaId))</td>
+        <td>@(Nome(marcas, context.MarcaId))</td>
+        <td><code>@(SiglaUnidade(context.UnidadeMedidaId))</code></td>
+        <td>@context.ValorVenda.ToString("C")</td>
+        <td>@context.Quantidade.ToString("N3")</td>
+        <td>
+            @if (context.PermiteFracionamento)
+            { <span class="badge bg-info">Por KG</span> }
+            else
+            { <span class="badge bg-light text-dark border">Unidade</span> }
+        </td>
+        <td>
+            @if (context.Ativo)
+            { <span class="badge bg-success">Ativo</span> }
+            else
+            { <span class="badge bg-secondary">Inativo</span> }
+        </td>
+    </LinhaTemplate>
+    <AcoesTemplate>
+        <BotoesAcaoCadastro Ativo="@context.Ativo"
+                            AoEditar="() => AbrirEdicao(context)"
+                            AoInativar="() => InativarAsync(context.Id)"
+                            AoReativar="() => ReativarAsync(context.Id)"
+                            AoExcluir="() => AbrirConfirmExcluir(context)" />
+    </AcoesTemplate>
+</TabelaListagem>
+
+<DialogoDuplicado TItem="Produto"
+                  Visivel="@dialogoDuplicadoAberto"
+                  Itens="@duplicados"
+                  Processando="@salvando"
+                  AoConfirmar="SalvarMesmoComDuplicado"
+                  AoCancelar="() => dialogoDuplicadoAberto = false" />
+
+<ConfirmDialog Visivel="@confirmExcluirAberto"
+               Titulo="Excluir Produto"
+               TextoConfirmar="Excluir definitivo"
+               Processando="@excluindo"
+               MensagemErro="@erroExcluir"
+               AoConfirmar="ConfirmarExcluirAsync"
+               AoCancelar="() => confirmExcluirAberto = false">
+    <p>Tem certeza que deseja excluir <strong>@(itemParaExcluir?.Nome)</strong>?</p>
+    <p class="text-muted small mb-0">
+        Produtos com histórico de vendas/comandas não podem ser excluídos — prefira inativar.
+    </p>
+</ConfirmDialog>
+
+<ModalCrud Visivel="@modalAberto"
+           Titulo="@(editando.Id == 0 ? "Novo Produto" : "Editar Produto")"
+           MensagemErro="@erro"
+           Salvando="@salvando"
+           Tamanho="ModalCrud.TamanhoModal.Grande"
+           ExigeConfirmacao="@(editando.Id != 0)"
+           AoFechar="FecharModal"
+           AoConfirmar="SalvarAsync">
+    <div class="row g-3">
+        <div class="col-md-8">
+            <label class="form-label">Nome <span class="text-danger">*</span></label>
+            <input class="form-control" maxlength="255" @bind="editando.Nome" />
+        </div>
+
+        <div class="col-md-4">
+            <label class="form-label">Código de barras</label>
+            <input class="form-control" maxlength="20" @bind="editando.CodigoBarras"
+                   placeholder="EAN-13 / código interno" />
+        </div>
+
+        <div class="col-md-12">
+            <label class="form-label">Foto</label>
+            <div class="d-flex align-items-center gap-2">
+                @if (!string.IsNullOrEmpty(editando.FotoUrl))
+                {
+                    <img src="@editando.FotoUrl" alt="Foto"
+                         style="width: 64px; height: 64px; object-fit: cover; border-radius: 6px;"
+                         class="border" />
+                    <button type="button" class="btn btn-sm btn-outline-danger"
+                            @onclick="RemoverFoto" disabled="@uploadando">
+                        Remover
+                    </button>
+                }
+                else
+                {
+                    <div style="width: 64px; height: 64px;"
+                         class="border rounded d-flex align-items-center justify-content-center text-muted small">
+                        sem foto
+                    </div>
+                }
+            </div>
+            <InputFile OnChange="HandleUpload" class="form-control form-control-sm mt-1"
+                       accept="image/png,image/jpeg,image/webp" disabled="@uploadando" />
+            @if (uploadando)
+            {
+                <small class="text-muted">Enviando...</small>
+            }
+            <small class="text-muted d-block">JPG/PNG/WebP até 2 MB.</small>
+        </div>
+
+        <div class="col-md-4">
+            <label class="form-label">Categoria</label>
+            <div class="input-group">
+                <select class="form-select" @bind="editando.CategoriaId">
+                    <option value="">— Selecione —</option>
+                    @foreach (var c in categorias)
+                    {
+                        <option value="@c.Id">@c.Nome</option>
+                    }
+                </select>
+                <button type="button" class="btn btn-outline-primary"
+                        @onclick="AbrirNovaCategoria">+</button>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Marca <span class="text-danger">*</span></label>
+            <div class="input-group">
+                <select class="form-select" @bind="editando.MarcaId">
+                    <option value="0">— Selecione —</option>
+                    @foreach (var m in marcas)
+                    {
+                        <option value="@m.Id">@m.Nome</option>
+                    }
+                </select>
+                <button type="button" class="btn btn-outline-primary"
+                        @onclick="AbrirNovaMarca">+</button>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Unidade de Medida <span class="text-danger">*</span></label>
+            <div class="input-group">
+                <select class="form-select" @bind="editando.UnidadeMedidaId" @bind:after="AjustarFracionamentoPelaUnidade">
+                    <option value="0">— Selecione —</option>
+                    @foreach (var u in unidades)
+                    {
+                        <option value="@u.Id">@u.Nome (@u.Sigla)</option>
+                    }
+                </select>
+                <button type="button" class="btn btn-outline-primary"
+                        @onclick="AbrirNovaUnidade">+</button>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">Valor Compra</label>
+            <input type="number" step="0.01" class="form-control"
+                   @bind="editando.ValorCompra" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Valor Venda <span class="text-danger">*</span></label>
+            <input type="number" step="0.01" class="form-control"
+                   @bind="editando.ValorVenda" />
+        </div>
+
+        <div class="col-12">
+            <hr class="my-1" />
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="frac" @bind="editando.PermiteFracionamento" />
+                <label class="form-check-label" for="frac">
+                    <strong>Vende por peso (KG)</strong>
+                    — habilita a regra <code>(PesoBruto - Tara) × Preço/KG</code>
+                </label>
+            </div>
+        </div>
+
+        @if (editando.PermiteFracionamento)
+        {
+            <div class="col-md-6">
+                <label class="form-label">Preço por KG <span class="text-danger">*</span></label>
+                <input type="number" step="0.01" class="form-control" @bind="editando.PrecoKg" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Tara padrão (KG)</label>
+                <input type="number" step="0.001" class="form-control" @bind="editando.Tara" />
+                <small class="text-muted">Peso da embalagem subtraído na venda.</small>
+            </div>
+        }
+
+        <div class="col-12">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="ativoPr" @bind="editando.Ativo" />
+                <label class="form-check-label" for="ativoPr">Ativo</label>
+            </div>
+        </div>
+    </div>
+</ModalCrud>
+
+<ModalCrud Visivel="@modalCategoriaAberto"
+           Titulo="Nova Categoria"
+           Camada="ModalCrud.CamadaModal.Secundaria"
+           MensagemErro="@erroCategoria"
+           Salvando="@salvandoCategoria"
+           AoFechar="() => modalCategoriaAberto = false"
+           AoConfirmar="SalvarCategoriaAsync">
+    <div class="mb-3">
+        <label class="form-label">Nome <span class="text-danger">*</span></label>
+        <input class="form-control" maxlength="60" @bind="novaCategoria.Nome" />
+    </div>
+</ModalCrud>
+
+<ModalCrud Visivel="@modalMarcaAberto"
+           Titulo="Nova Marca"
+           Camada="ModalCrud.CamadaModal.Secundaria"
+           MensagemErro="@erroMarca"
+           Salvando="@salvandoMarca"
+           AoFechar="() => modalMarcaAberto = false"
+           AoConfirmar="SalvarMarcaAsync">
+    <div class="mb-3">
+        <label class="form-label">Nome <span class="text-danger">*</span></label>
+        <input class="form-control" maxlength="60" @bind="novaMarca.Nome" />
+    </div>
+</ModalCrud>
+
+<ModalCrud Visivel="@modalUnidadeAberto"
+           Titulo="Nova Unidade de Medida"
+           Camada="ModalCrud.CamadaModal.Secundaria"
+           MensagemErro="@erroUnidade"
+           Salvando="@salvandoUnidade"
+           AoFechar="() => modalUnidadeAberto = false"
+           AoConfirmar="SalvarUnidadeAsync">
+    <div class="mb-3">
+        <label class="form-label">Nome <span class="text-danger">*</span></label>
+        <input class="form-control" maxlength="255" @bind="novaUnidade.Nome" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Sigla</label>
+        <input class="form-control" maxlength="5" style="text-transform: uppercase"
+               @bind="novaUnidade.Sigla" placeholder="KG, UN, LT" />
+    </div>
+    <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="fracQuick" @bind="novaUnidade.Fracionavel" />
+        <label class="form-check-label" for="fracQuick">Fracionável (venda por peso)</label>
+    </div>
+</ModalCrud>
+
+@code {
+    [Parameter, SupplyParameterFromQuery(Name = "novo")]
+    public string? NovoQuery { get; set; }
+    private string? _novoProcessado;
+
+    protected override void OnParametersSet()
+    {
+        if (NovoQuery is not null && NovoQuery != _novoProcessado)
+        {
+            _novoProcessado = NovoQuery;
+            AbrirNovo();
+        }
+    }
+
+    private IReadOnlyList<Produto> itens = Array.Empty<Produto>();
+    private IReadOnlyList<Categoria> categorias = Array.Empty<Categoria>();
+    private IReadOnlyList<Marca> marcas = Array.Empty<Marca>();
+    private IReadOnlyList<UnidadeMedida> unidades = Array.Empty<UnidadeMedida>();
+
+    private string? filtro;
+    private bool apenasAtivos;
+    private bool modalAberto;
+    private bool salvando;
+    private bool uploadando;
+    private string? erro;
+    private Produto editando = new();
+
+    // Modais secundários
+    private bool modalCategoriaAberto, salvandoCategoria;
+    private string? erroCategoria;
+    private Categoria novaCategoria = new();
+
+    private bool modalMarcaAberto, salvandoMarca;
+    private string? erroMarca;
+    private Marca novaMarca = new();
+
+    private bool modalUnidadeAberto, salvandoUnidade;
+    private string? erroUnidade;
+    private UnidadeMedida novaUnidade = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarLookupsAsync();
+        await CarregarAsync();
+    }
+
+    private async Task CarregarLookupsAsync()
+    {
+        categorias = await ServicoCategoria.ListarAsync(somenteAtivos: true);
+        marcas = await ServicoMarca.ListarAsync(somenteAtivos: true);
+        unidades = await ServicoUnidade.ListarAsync(somenteAtivos: true);
+    }
+
+    private async Task CarregarAsync()
+        => itens = await ServicoProduto.ListarAsync(apenasAtivos, filtro);
+
+    private static string Nome<TT>(IReadOnlyList<TT> lista, long? id) where TT : EntityBase
+    {
+        if (id is null || id == 0) return "—";
+        var e = lista.FirstOrDefault(x => x.Id == id);
+        return e is null ? "—" : (e.GetType().GetProperty("Nome")?.GetValue(e) as string ?? "—");
+    }
+
+    private string SiglaUnidade(long id)
+        => unidades.FirstOrDefault(u => u.Id == id)?.Sigla ?? "";
+
+    private void AjustarFracionamentoPelaUnidade()
+    {
+        var u = unidades.FirstOrDefault(x => x.Id == editando.UnidadeMedidaId);
+        if (u is not null && editando.Id == 0)
+            editando.PermiteFracionamento = u.Fracionavel;
+    }
+
+    private void AbrirNovo()
+    {
+        editando = new Produto { Ativo = true, QuantidadeMinima = 1m };
+        erro = null; modalAberto = true;
+    }
+
+    private void AbrirEdicao(Produto p)
+    {
+        editando = new Produto
+        {
+            Id = p.Id, Nome = p.Nome, FotoUrl = p.FotoUrl, CodigoBarras = p.CodigoBarras,
+            CategoriaId = p.CategoriaId, MarcaId = p.MarcaId, UnidadeMedidaId = p.UnidadeMedidaId,
+            ValorCompra = p.ValorCompra, ValorVenda = p.ValorVenda,
+            Quantidade = p.Quantidade, QuantidadeMinima = p.QuantidadeMinima,
+            PrecoKg = p.PrecoKg, Tara = p.Tara,
+            PermiteFracionamento = p.PermiteFracionamento,
+            Ativo = p.Ativo
+        };
+        erro = null; modalAberto = true;
+    }
+
+    private async Task HandleUpload(InputFileChangeEventArgs e)
+    {
+        if (e.File is null) return;
+
+        if (e.File.Size > ArmazenamentoFotos.MaxBytes)
+        {
+            erro = $"Arquivo de {e.File.Size / (1024.0 * 1024.0):N1} MB excede o limite de " +
+                   $"{ArmazenamentoFotos.MaxBytes / (1024 * 1024)} MB.";
+            return;
+        }
+
+        uploadando = true; erro = null;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            var novaUrl = await Fotos.SalvarAsync(e.File);
+            Fotos.Remover(editando.FotoUrl);
+            editando.FotoUrl = novaUrl;
+        }
+        catch (Exception ex)
+        {
+            erro = $"Falha ao salvar a foto: {ex.Message}";
+        }
+        finally
+        {
+            uploadando = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void RemoverFoto()
+    {
+        Fotos.Remover(editando.FotoUrl);
+        editando.FotoUrl = null;
+    }
+
+    private void FecharModal() => modalAberto = false;
+
+    private async Task SalvarAsync()
+    {
+        salvando = true; erro = null;
+        try
+        {
+            if (editando.MarcaId == 0) throw new InvalidOperationException("Selecione uma Marca.");
+            if (editando.UnidadeMedidaId == 0) throw new InvalidOperationException("Selecione uma Unidade de Medida.");
+            if (editando.PermiteFracionamento && editando.PrecoKg <= 0)
+                throw new InvalidOperationException("Para venda por peso, informe o Preço por KG.");
+
+            if (editando.CategoriaId == 0) editando.CategoriaId = null;
+
+            editando.Nome = editando.Nome?.Trim() ?? string.Empty;
+            editando.CodigoBarras = string.IsNullOrWhiteSpace(editando.CodigoBarras)
+                ? null : editando.CodigoBarras.Trim();
+
+            if (!forcarDuplicado)
+            {
+                var dups = await ServicoProduto.BuscarDuplicadosPorNomeAsync(editando);
+                if (dups.Count > 0) { duplicados = dups; dialogoDuplicadoAberto = true; return; }
+            }
+            forcarDuplicado = false;
+
+            await ServicoProduto.SalvarAsync(editando);
+            modalAberto = false;
+            await CarregarAsync();
+        }
+        catch (Exception ex) { erro = MensagensErro.Para(ex); }
+        finally { salvando = false; }
+    }
+
+    private bool dialogoDuplicadoAberto, forcarDuplicado;
+    private IReadOnlyList<Produto> duplicados = Array.Empty<Produto>();
+    private async Task SalvarMesmoComDuplicado()
+    {
+        forcarDuplicado = true; dialogoDuplicadoAberto = false;
+        await SalvarAsync();
+    }
+
+    private async Task InativarAsync(long id) { await ServicoProduto.InativarAsync(id); await CarregarAsync(); }
+    private async Task ReativarAsync(long id) { await ServicoProduto.ReativarAsync(id); await CarregarAsync(); }
+
+    private bool confirmExcluirAberto;
+    private bool excluindo;
+    private string? erroExcluir;
+    private Produto? itemParaExcluir;
+
+    private void AbrirConfirmExcluir(Produto item)
+    {
+        itemParaExcluir = item;
+        erroExcluir = null;
+        confirmExcluirAberto = true;
+    }
+
+    private async Task ConfirmarExcluirAsync()
+    {
+        if (itemParaExcluir is null) return;
+        excluindo = true; erroExcluir = null;
+        try
+        {
+            var fotoParaRemover = itemParaExcluir.FotoUrl;
+            await ServicoProduto.ExcluirDefinitivoAsync(itemParaExcluir.Id);
+            Fotos.Remover(fotoParaRemover);
+            confirmExcluirAberto = false;
+            itemParaExcluir = null;
+            await CarregarAsync();
+        }
+        catch (Exception ex) { erroExcluir = MensagensErro.Para(ex); }
+        finally { excluindo = false; }
+    }
+
+    private void AbrirNovaCategoria()
+    {
+        novaCategoria = new Categoria { Ativo = true };
+        erroCategoria = null; modalCategoriaAberto = true;
+    }
+
+    private async Task SalvarCategoriaAsync()
+    {
+        salvandoCategoria = true; erroCategoria = null;
+        try
+        {
+            var salvo = await ServicoCategoria.SalvarAsync(novaCategoria);
+            categorias = await ServicoCategoria.ListarAsync(somenteAtivos: true);
+            editando.CategoriaId = salvo.Id;
+            modalCategoriaAberto = false;
+        }
+        catch (Exception ex) { erroCategoria = ex.Message; }
+        finally { salvandoCategoria = false; }
+    }
+
+    private void AbrirNovaMarca()
+    {
+        novaMarca = new Marca { Ativo = true };
+        erroMarca = null; modalMarcaAberto = true;
+    }
+
+    private async Task SalvarMarcaAsync()
+    {
+        salvandoMarca = true; erroMarca = null;
+        try
+        {
+            var salvo = await ServicoMarca.SalvarAsync(novaMarca);
+            marcas = await ServicoMarca.ListarAsync(somenteAtivos: true);
+            editando.MarcaId = salvo.Id;
+            modalMarcaAberto = false;
+        }
+        catch (Exception ex) { erroMarca = ex.Message; }
+        finally { salvandoMarca = false; }
+    }
+
+    private void AbrirNovaUnidade()
+    {
+        novaUnidade = new UnidadeMedida { Ativo = true };
+        erroUnidade = null; modalUnidadeAberto = true;
+    }
+
+    private async Task SalvarUnidadeAsync()
+    {
+        salvandoUnidade = true; erroUnidade = null;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(novaUnidade.Sigla))
+                novaUnidade.Sigla = novaUnidade.Sigla.ToUpperInvariant();
+
+            var salvo = await ServicoUnidade.SalvarAsync(novaUnidade);
+            unidades = await ServicoUnidade.ListarAsync(somenteAtivos: true);
+            editando.UnidadeMedidaId = salvo.Id;
+            AjustarFracionamentoPelaUnidade();
+            modalUnidadeAberto = false;
+        }
+        catch (Exception ex) { erroUnidade = ex.Message; }
+        finally { salvandoUnidade = false; }
+    }
+}

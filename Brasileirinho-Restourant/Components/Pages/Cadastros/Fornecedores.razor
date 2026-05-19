@@ -1,0 +1,420 @@
+@page "/cadastros/fornecedores"
+@rendermode InteractiveServer
+
+@inject IServicoBase<Fornecedor> ServicoFornecedor
+@inject IServicoBase<Cidade> ServicoCidade
+@inject IServicoBase<Estado> ServicoEstado
+@inject IServicoBase<CondicaoPagamento> ServicoCondicaoPagamento
+
+<PageTitle>Fornecedores</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">Fornecedores</h1>
+    <button class="btn btn-primary" @onclick="AbrirNovo">Novo</button>
+</div>
+
+<div class="row g-2 mb-3">
+    <div class="col-md-6">
+        <input class="form-control" placeholder="Filtrar por nome / CNPJ / e-mail..."
+               @bind="filtro" @bind:event="oninput" @bind:after="CarregarAsync" />
+    </div>
+    <div class="col-md-3">
+        <div class="form-check mt-2">
+            <input class="form-check-input" type="checkbox" id="ativos"
+                   @bind="apenasAtivos" @bind:after="CarregarAsync" />
+            <label class="form-check-label" for="ativos">Apenas ativos</label>
+        </div>
+    </div>
+</div>
+
+<TabelaListagem TItem="Fornecedor"
+                Itens="@itens"
+                Cabecalhos="@(new[] { "Id", "Tipo", "Razão / Nome", "Documento", "E-mail", "Telefone", "Cidade", "Ativo" })">
+    <LinhaTemplate>
+        <td>@context.Id</td>
+        <td>
+            @if (context.Estrangeiro)
+            { <span class="badge bg-dark">EXT</span> }
+            else if (context.TipoPessoa == TipoPessoa.Fisica)
+            { <span class="badge bg-info">PF</span> }
+            else
+            { <span class="badge bg-warning text-dark">PJ</span> }
+        </td>
+        <td>@context.Nome</td>
+        <td>
+            <code>
+                @(context.Estrangeiro
+                    ? context.CpfCnpj
+                    : Documento.Formatar(context.CpfCnpj, context.TipoPessoa))
+            </code>
+        </td>
+        <td>@context.Email</td>
+        <td>@Telefone.Formatar(context.Telefone, context.Estrangeiro)</td>
+        <td>@NomeCidade(context.CidadeId)</td>
+        <td>
+            @if (context.Ativo)
+            { <span class="badge bg-success">Ativo</span> }
+            else
+            { <span class="badge bg-secondary">Inativo</span> }
+        </td>
+    </LinhaTemplate>
+    <AcoesTemplate>
+        <BotoesAcaoCadastro Ativo="@context.Ativo"
+                            AoEditar="() => AbrirEdicao(context)"
+                            AoInativar="() => InativarAsync(context.Id)"
+                            AoReativar="() => ReativarAsync(context.Id)"
+                            AoExcluir="() => AbrirConfirmExcluir(context)" />
+    </AcoesTemplate>
+</TabelaListagem>
+
+<ModalCrud Visivel="@modalAberto"
+           Titulo="@(editando.Id == 0 ? "Novo Fornecedor" : "Editar Fornecedor")"
+           Tamanho="ModalCrud.TamanhoModal.Grande"
+           MensagemErro="@erro"
+           Salvando="@salvando"
+           ExigeConfirmacao="@(editando.Id != 0)"
+           AoFechar="FecharModal"
+           AoConfirmar="SalvarAsync">
+    <div class="row g-3">
+        <div class="col-md-12">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="extForn"
+                       checked="@editando.Estrangeiro"
+                       @onchange="ToggleEstrangeiro" />
+                <label class="form-check-label" for="extForn">
+                    <strong>Fornecedor estrangeiro</strong>
+                    <small class="text-muted ms-2">(sem CPF/CNPJ — usa Tax ID ou documento local)</small>
+                </label>
+            </div>
+        </div>
+
+        @if (!editando.Estrangeiro)
+        {
+            <div class="col-md-12">
+                <label class="form-label d-block">Tipo de Pessoa <span class="text-danger">*</span></label>
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="tipoPessoaForn" id="tpFisicaForn"
+                           checked="@(editando.TipoPessoa == TipoPessoa.Fisica)"
+                           @onchange="() => MudarTipoPessoa(TipoPessoa.Fisica)" />
+                    <label class="btn btn-outline-primary" for="tpFisicaForn">
+                        Pessoa Física (CPF)
+                    </label>
+
+                    <input type="radio" class="btn-check" name="tipoPessoaForn" id="tpJuridicaForn"
+                           checked="@(editando.TipoPessoa == TipoPessoa.Juridica)"
+                           @onchange="() => MudarTipoPessoa(TipoPessoa.Juridica)" />
+                    <label class="btn btn-outline-primary" for="tpJuridicaForn">
+                        Pessoa Jurídica (CNPJ)
+                    </label>
+                </div>
+            </div>
+        }
+
+        <div class="col-md-8">
+            <label class="form-label">
+                @(editando.Estrangeiro
+                    ? "Nome Completo / Razão Social"
+                    : editando.TipoPessoa == TipoPessoa.Fisica ? "Nome Completo" : "Razão Social")
+                <span class="text-danger">*</span>
+            </label>
+            <input class="form-control" maxlength="255" @bind="editando.Nome" />
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">
+                @(editando.Estrangeiro
+                    ? "Documento / Tax ID"
+                    : editando.TipoPessoa == TipoPessoa.Fisica ? "CPF" : "CNPJ")
+            </label>
+            <input class="form-control"
+                   maxlength="@(editando.Estrangeiro ? 30 : Documento.TamanhoEsperado(editando.TipoPessoa))"
+                   @bind="editando.CpfCnpj"
+                   placeholder="@(editando.Estrangeiro
+                        ? "Tax ID / doc. estrangeiro"
+                        : $"Apenas {Documento.TamanhoEsperado(editando.TipoPessoa)} dígitos")" />
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">E-mail <span class="text-danger">*</span></label>
+            <input type="email" class="form-control" maxlength="255" @bind="editando.Email" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Telefone <span class="text-danger">*</span></label>
+            <input class="form-control" maxlength="20" @bind="editando.Telefone"
+                   placeholder="@(editando.Estrangeiro
+                        ? "Com código do país"
+                        : "(11) 91234-5678")" />
+        </div>
+
+        <div class="col-md-12">
+            <label class="form-label">Cidade</label>
+            <div class="input-group">
+                <select class="form-select" @bind="editando.CidadeId">
+                    <option value="">— Selecione —</option>
+                    @foreach (var c in cidades)
+                    {
+                        <option value="@c.Id">@c.Nome — @(SiglaEstado(c.EstadoId))</option>
+                    }
+                </select>
+                <button type="button" class="btn btn-outline-primary" @onclick="AbrirNovaCidade">+ Nova</button>
+            </div>
+        </div>
+
+        <div class="col-md-12">
+            <label class="form-label">Condição de Pagamento</label>
+            <select class="form-select" @bind="editando.CondicaoPagamentoId">
+                <option value="">— Selecione —</option>
+                @foreach (var cp in condicoesPagamento)
+                {
+                    <option value="@cp.Id">@cp.Nome</option>
+                }
+            </select>
+            <small class="text-muted">Condição padrão para compras deste fornecedor.</small>
+        </div>
+
+        <div class="col-12">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="ativoForn" @bind="editando.Ativo" />
+                <label class="form-check-label" for="ativoForn">Ativo</label>
+            </div>
+        </div>
+    </div>
+</ModalCrud>
+
+<ModalCrud Visivel="@modalCidadeAberto"
+           Titulo="Nova Cidade"
+           Camada="ModalCrud.CamadaModal.Secundaria"
+           MensagemErro="@erroCidade"
+           Salvando="@salvandoCidade"
+           AoFechar="() => modalCidadeAberto = false"
+           AoConfirmar="SalvarCidadeAsync">
+    <div class="row g-3">
+        <div class="col-md-8">
+            <label class="form-label">Nome <span class="text-danger">*</span></label>
+            <input class="form-control" maxlength="100" @bind="novaCidade.Nome" />
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Código IBGE</label>
+            <input class="form-control" maxlength="10" @bind="novaCidade.CodigoIbge" />
+        </div>
+        <div class="col-md-12">
+            <label class="form-label">Estado <span class="text-danger">*</span></label>
+            <select class="form-select" @bind="novaCidade.EstadoId">
+                <option value="0">— Selecione —</option>
+                @foreach (var e in estados)
+                {
+                    <option value="@e.Id">@e.Nome (@e.Uf)</option>
+                }
+            </select>
+            <small class="text-muted">
+                Estado não encontrado? <a href="/cadastros/estados" target="_blank">Cadastre em Estados</a>.
+            </small>
+        </div>
+    </div>
+</ModalCrud>
+
+<DialogoDuplicado TItem="Fornecedor"
+                  Visivel="@dialogoDuplicadoAberto"
+                  Itens="@duplicados"
+                  Processando="@salvando"
+                  AoConfirmar="SalvarMesmoComDuplicado"
+                  AoCancelar="() => dialogoDuplicadoAberto = false" />
+
+<ConfirmDialog Visivel="@confirmExcluirAberto"
+               Titulo="Excluir Fornecedor"
+               TextoConfirmar="Excluir definitivo"
+               Processando="@excluindo"
+               MensagemErro="@erroExcluir"
+               AoConfirmar="ConfirmarExcluirAsync"
+               AoCancelar="() => confirmExcluirAberto = false">
+    <p>Tem certeza que deseja excluir <strong>@(itemParaExcluir?.Nome)</strong>?</p>
+    <p class="text-muted small mb-0">
+        Fornecedores com histórico (notas, contas a pagar) não podem ser excluídos — prefira inativar.
+    </p>
+</ConfirmDialog>
+
+@code {
+    [Parameter, SupplyParameterFromQuery(Name = "novo")]
+    public string? NovoQuery { get; set; }
+    private string? _novoProcessado;
+
+    protected override void OnParametersSet()
+    {
+        if (NovoQuery is not null && NovoQuery != _novoProcessado)
+        {
+            _novoProcessado = NovoQuery;
+            AbrirNovo();
+        }
+    }
+
+    private IReadOnlyList<Fornecedor> itens = Array.Empty<Fornecedor>();
+    private IReadOnlyList<Cidade> cidades = Array.Empty<Cidade>();
+    private IReadOnlyList<Estado> estados = Array.Empty<Estado>();
+    private IReadOnlyList<CondicaoPagamento> condicoesPagamento = Array.Empty<CondicaoPagamento>();
+    private string? filtro;
+    private bool apenasAtivos;
+
+    private bool modalAberto, salvando;
+    private string? erro;
+    private Fornecedor editando = new();
+
+    private bool modalCidadeAberto, salvandoCidade;
+    private string? erroCidade;
+    private Cidade novaCidade = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarCidadesAsync();
+        estados = await ServicoEstado.ListarAsync(somenteAtivos: true);
+        condicoesPagamento = await ServicoCondicaoPagamento.ListarAsync(somenteAtivos: true);
+        await CarregarAsync();
+    }
+
+    private async Task CarregarCidadesAsync()
+        => cidades = await ServicoCidade.ListarAsync(somenteAtivos: true);
+
+    private async Task CarregarAsync()
+        => itens = await ServicoFornecedor.ListarAsync(apenasAtivos, filtro);
+
+    private string NomeCidade(long? id)
+        => id is null ? "—" : (cidades.FirstOrDefault(c => c.Id == id)?.Nome ?? "—");
+
+    private string SiglaEstado(long id)
+        => estados.FirstOrDefault(e => e.Id == id)?.Uf ?? "";
+
+    private void AbrirNovo()
+    {
+        editando = new Fornecedor { Ativo = true, TipoPessoa = TipoPessoa.Juridica };
+        erro = null; modalAberto = true;
+    }
+
+    private void AbrirEdicao(Fornecedor f)
+    {
+        editando = new Fornecedor
+        {
+            Id = f.Id, Nome = f.Nome, TipoPessoa = f.TipoPessoa,
+            Estrangeiro = f.Estrangeiro,
+            CpfCnpj = f.CpfCnpj, Email = f.Email,
+            Telefone = f.Telefone, CidadeId = f.CidadeId,
+            CondicaoPagamentoId = f.CondicaoPagamentoId, Ativo = f.Ativo
+        };
+        erro = null; modalAberto = true;
+    }
+
+    private void FecharModal() => modalAberto = false;
+
+    private void MudarTipoPessoa(TipoPessoa novo)
+    {
+        editando.TipoPessoa = novo;
+        editando.CpfCnpj = null;
+    }
+
+    private void ToggleEstrangeiro(ChangeEventArgs e)
+    {
+        editando.Estrangeiro = (bool)(e.Value ?? false);
+        editando.CpfCnpj = null;
+        editando.Telefone = string.Empty;
+    }
+
+    private async Task SalvarAsync()
+    {
+        salvando = true; erro = null;
+        try
+        {
+            if (editando.Estrangeiro)
+            {
+                editando.CpfCnpj = string.IsNullOrWhiteSpace(editando.CpfCnpj)
+                    ? null : editando.CpfCnpj.Trim();
+            }
+            else
+            {
+                editando.CpfCnpj = Documento.SomenteDigitos(editando.CpfCnpj);
+                if (string.IsNullOrEmpty(editando.CpfCnpj))
+                    editando.CpfCnpj = null;
+                else if (!Documento.Valido(editando.CpfCnpj, editando.TipoPessoa))
+                    throw new InvalidOperationException(
+                        $"{(editando.TipoPessoa == TipoPessoa.Fisica ? "CPF" : "CNPJ")} deve ter " +
+                        $"{Documento.TamanhoEsperado(editando.TipoPessoa)} dígitos.");
+            }
+
+            editando.Telefone = Telefone.SomenteDigitos(editando.Telefone);
+            if (!Telefone.Valido(editando.Telefone, editando.Estrangeiro))
+                throw new InvalidOperationException(
+                    editando.Estrangeiro
+                        ? "Telefone deve ter entre 6 e 20 dígitos (com código do país)."
+                        : "Telefone deve ter 10 ou 11 dígitos com DDD.");
+
+            if (!forcarDuplicado)
+            {
+                var dups = await ServicoFornecedor.BuscarDuplicadosPorNomeAsync(editando);
+                if (dups.Count > 0) { duplicados = dups; dialogoDuplicadoAberto = true; return; }
+            }
+            forcarDuplicado = false;
+
+            await ServicoFornecedor.SalvarAsync(editando);
+            modalAberto = false;
+            await CarregarAsync();
+        }
+        catch (Exception ex) { erro = MensagensErro.Para(ex); }
+        finally { salvando = false; }
+    }
+
+    private bool dialogoDuplicadoAberto, forcarDuplicado;
+    private IReadOnlyList<Fornecedor> duplicados = Array.Empty<Fornecedor>();
+    private async Task SalvarMesmoComDuplicado()
+    {
+        forcarDuplicado = true; dialogoDuplicadoAberto = false;
+        await SalvarAsync();
+    }
+
+    private async Task InativarAsync(long id) { await ServicoFornecedor.InativarAsync(id); await CarregarAsync(); }
+    private async Task ReativarAsync(long id) { await ServicoFornecedor.ReativarAsync(id); await CarregarAsync(); }
+
+    private void AbrirNovaCidade()
+    {
+        novaCidade = new Cidade { Ativo = true };
+        erroCidade = null; modalCidadeAberto = true;
+    }
+
+    private async Task SalvarCidadeAsync()
+    {
+        salvandoCidade = true; erroCidade = null;
+        try
+        {
+            if (novaCidade.EstadoId == 0)
+                throw new InvalidOperationException("Selecione um Estado.");
+
+            var salva = await ServicoCidade.SalvarAsync(novaCidade);
+            await CarregarCidadesAsync();
+            editando.CidadeId = salva.Id;
+            modalCidadeAberto = false;
+        }
+        catch (Exception ex) { erroCidade = MensagensErro.Para(ex); }
+        finally { salvandoCidade = false; }
+    }
+
+    private bool confirmExcluirAberto, excluindo;
+    private string? erroExcluir;
+    private Fornecedor? itemParaExcluir;
+
+    private void AbrirConfirmExcluir(Fornecedor item)
+    {
+        itemParaExcluir = item;
+        erroExcluir = null;
+        confirmExcluirAberto = true;
+    }
+
+    private async Task ConfirmarExcluirAsync()
+    {
+        if (itemParaExcluir is null) return;
+        excluindo = true; erroExcluir = null;
+        try
+        {
+            await ServicoFornecedor.ExcluirDefinitivoAsync(itemParaExcluir.Id);
+            confirmExcluirAberto = false;
+            itemParaExcluir = null;
+            await CarregarAsync();
+        }
+        catch (Exception ex) { erroExcluir = MensagensErro.Para(ex); }
+        finally { excluindo = false; }
+    }
+}

@@ -1,0 +1,440 @@
+@page "/financeiro/contas-receber"
+@rendermode InteractiveServer
+
+@inject IServicoContasReceber Servico
+@inject IServicoBase<Cliente> ServicoCliente
+@inject IServicoBase<FormaPagamento> ServicoFormaPagamento
+
+<PageTitle>Contas a Receber</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">Contas a Receber</h1>
+    <button class="btn btn-primary" @onclick="AbrirNova">+ Nova Conta</button>
+</div>
+
+@if (resumo is not null)
+{
+    <div class="row g-3 mb-4">
+        <div class="col-sm-4">
+            <div class="card border-warning text-center py-2">
+                <div class="card-body p-2">
+                    <div class="text-muted small">A Receber</div>
+                    <div class="fs-4 fw-bold text-warning">@resumo.Pendente.ToString("C")</div>
+                    <div class="text-muted small">@resumo.QtdPendente contas</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="card border-danger text-center py-2">
+                <div class="card-body p-2">
+                    <div class="text-muted small">Atrasado</div>
+                    <div class="fs-4 fw-bold text-danger">@resumo.Atrasado.ToString("C")</div>
+                    <div class="text-muted small">@resumo.QtdAtrasado contas</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="card border-success text-center py-2">
+                <div class="card-body p-2">
+                    <div class="text-muted small">Recebido (período filtrado)</div>
+                    <div class="fs-4 fw-bold text-success">@resumo.Recebido.ToString("C")</div>
+                    <div class="text-muted small">@resumo.QtdRecebido contas</div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="row g-2 mb-3">
+    <div class="col-md-3">
+        <select class="form-select" @bind="filtroStatus" @bind:after="CarregarAsync">
+            <option value="">Todos os status</option>
+            <option value="Pendente">Pendente</option>
+            <option value="Atrasado">Atrasado</option>
+            <option value="Recebido">Recebido</option>
+            <option value="Cancelado">Cancelado</option>
+        </select>
+    </div>
+    <div class="col-md-2">
+        <input type="date" class="form-control" @bind="filtroVencDe" @bind:after="CarregarAsync" />
+    </div>
+    <div class="col-md-2">
+        <input type="date" class="form-control" @bind="filtroVencAte" @bind:after="CarregarAsync" />
+    </div>
+    <div class="col-md-3">
+        <select class="form-select" @bind="filtroClienteId" @bind:after="CarregarAsync">
+            <option value="0">Todos os clientes</option>
+            @foreach (var c in clientes)
+            {
+                <option value="@c.Id">@c.Nome</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-2">
+        <button class="btn btn-outline-secondary w-100" @onclick="LimparFiltros">Limpar</button>
+    </div>
+</div>
+
+@if (mensagem is not null)
+{
+    <div class="alert @classeMensagem alert-dismissible mb-3">
+        @mensagem
+        <button type="button" class="btn-close" @onclick="() => mensagem = null"></button>
+    </div>
+}
+
+<div class="table-responsive">
+    <table class="table table-hover align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>Descrição</th>
+                <th>Cliente</th>
+                <th>Emissão</th>
+                <th>Vencimento</th>
+                <th class="text-end">Valor</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!itens.Any())
+            {
+                <tr><td colspan="7" class="text-center text-muted py-4">Nenhuma conta encontrada.</td></tr>
+            }
+            @foreach (var c in itens)
+            {
+                <tr>
+                    <td>
+                        <div>@c.Descricao</div>
+                        @if (c.VendaId.HasValue)
+                        {
+                            <small class="text-muted">Venda #@c.VendaId</small>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(c.Observacao))
+                        {
+                            <small class="text-muted d-block">@c.Observacao</small>
+                        }
+                    </td>
+                    <td>@(c.Cliente?.Nome ?? "—")</td>
+                    <td>@c.DataEmissao.ToString("dd/MM/yyyy")</td>
+                    <td class="@(c.Atrasado ? "text-danger fw-semibold" : "")">
+                        @c.DataVencimento.ToString("dd/MM/yyyy")
+                    </td>
+                    <td class="text-end fw-semibold">@c.Valor.ToString("C")</td>
+                    <td>@BadgeStatus(c)</td>
+                    <td>
+                        <div class="d-flex gap-1 justify-content-end">
+                            @if (c.Status == StatusContaReceber.Pendente)
+                            {
+                                <button class="btn btn-sm btn-success" @onclick="() => AbrirRecebimento(c)"
+                                        title="Registrar recebimento">Receber</button>
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => AbrirEdicao(c)"
+                                        title="Editar">✏</button>
+                                <button class="btn btn-sm btn-outline-warning" @onclick="() => AbrirCancelar(c)"
+                                        title="Cancelar">✕</button>
+                            }
+                            @if (c.Status == StatusContaReceber.Recebido)
+                            {
+                                <span class="text-muted small">@c.DataRecebimento?.ToString("dd/MM") — @c.ValorRecebido?.ToString("C")</span>
+                            }
+                            @if (c.Status != StatusContaReceber.Recebido)
+                            {
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => AbrirExcluir(c)"
+                                        title="Excluir">🗑</button>
+                            }
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal Nova/Editar -->
+<ModalCrud Visivel="@modalAberto"
+           Titulo="@(editando.Id == 0 ? "Nova Conta a Receber" : "Editar Conta a Receber")"
+           MensagemErro="@erro"
+           Salvando="@salvando"
+           ExigeConfirmacao="@(editando.Id != 0)"
+           AoFechar="FecharModal"
+           AoConfirmar="SalvarAsync">
+    <div class="row g-3">
+        <div class="col-md-12">
+            <label class="form-label">Descrição <span class="text-danger">*</span></label>
+            <input class="form-control" maxlength="255" @bind="editando.Descricao" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Cliente</label>
+            <select class="form-select" @bind="editando.ClienteId">
+                <option value="">— Nenhum —</option>
+                @foreach (var c in clientes)
+                {
+                    <option value="@c.Id">@c.Nome</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Valor <span class="text-danger">*</span></label>
+            <input type="number" step="0.01" class="form-control"
+                   @bind="editando.Valor"
+                   @bind:culture="System.Globalization.CultureInfo.InvariantCulture" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Emissão <span class="text-danger">*</span></label>
+            <input type="date" class="form-control" @bind="editando.DataEmissao" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Vencimento <span class="text-danger">*</span></label>
+            <input type="date" class="form-control" @bind="editando.DataVencimento"
+                   min="@editando.DataEmissao.ToString("yyyy-MM-dd")" />
+        </div>
+        <div class="col-md-12">
+            <label class="form-label">Observação</label>
+            <input class="form-control" maxlength="500" @bind="editando.Observacao" />
+        </div>
+    </div>
+</ModalCrud>
+
+<!-- Modal Registrar Recebimento -->
+<ModalCrud Visivel="@modalRecebimentoAberto"
+           Titulo="Registrar Recebimento"
+           MensagemErro="@erroRecebimento"
+           Salvando="@salvando"
+           AoFechar="() => modalRecebimentoAberto = false"
+           AoConfirmar="ConfirmarRecebimentoAsync">
+    <div class="row g-3">
+        <div class="col-md-12">
+            <div class="alert alert-secondary py-2 mb-0">
+                <strong>@contaRecebendo?.Descricao</strong>
+                <span class="ms-2">— Valor: @contaRecebendo?.Valor.ToString("C")</span>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Data do Recebimento <span class="text-danger">*</span></label>
+            <input type="date" class="form-control" @bind="recDataRecebimento" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Valor Recebido <span class="text-danger">*</span></label>
+            <input type="number" step="0.01" class="form-control"
+                   @bind="recValorRecebido"
+                   @bind:culture="System.Globalization.CultureInfo.InvariantCulture" />
+        </div>
+        <div class="col-md-12">
+            <label class="form-label">Forma de Pagamento</label>
+            <select class="form-select" @bind="recFormaPagamentoId">
+                <option value="">— Selecione —</option>
+                @foreach (var f in formasPagamento)
+                {
+                    <option value="@f.Id">@f.Nome</option>
+                }
+            </select>
+        </div>
+    </div>
+</ModalCrud>
+
+<!-- Confirm Cancelar -->
+<ConfirmDialog Visivel="@confirmCancelarAberto"
+               Titulo="Cancelar Conta"
+               TextoConfirmar="Cancelar conta"
+               Processando="@salvando"
+               MensagemErro="@erroConfirm"
+               AoConfirmar="ConfirmarCancelarAsync"
+               AoCancelar="() => confirmCancelarAberto = false">
+    <p>Cancelar a conta <strong>@(contaAcao?.Descricao)</strong>?</p>
+</ConfirmDialog>
+
+<!-- Confirm Excluir -->
+<ConfirmDialog Visivel="@confirmExcluirAberto"
+               Titulo="Excluir Conta"
+               TextoConfirmar="Excluir definitivo"
+               Processando="@salvando"
+               MensagemErro="@erroConfirm"
+               AoConfirmar="ConfirmarExcluirAsync"
+               AoCancelar="() => confirmExcluirAberto = false">
+    <p>Excluir definitivamente <strong>@(contaAcao?.Descricao)</strong>?</p>
+</ConfirmDialog>
+
+@code {
+    private IReadOnlyList<ContaReceber> itens = Array.Empty<ContaReceber>();
+    private IReadOnlyList<Cliente> clientes = Array.Empty<Cliente>();
+    private IReadOnlyList<FormaPagamento> formasPagamento = Array.Empty<FormaPagamento>();
+
+    private string filtroStatus = "";
+    private DateOnly? filtroVencDe;
+    private DateOnly? filtroVencAte;
+    private long filtroClienteId;
+
+    private bool modalAberto, salvando;
+    private string? erro;
+    private ContaReceber editando = new();
+
+    private bool modalRecebimentoAberto;
+    private string? erroRecebimento;
+    private ContaReceber? contaRecebendo;
+    private DateOnly recDataRecebimento = DateOnly.FromDateTime(DateTime.Today);
+    private decimal recValorRecebido;
+    private long? recFormaPagamentoId;
+
+    private bool confirmCancelarAberto, confirmExcluirAberto;
+    private string? erroConfirm;
+    private ContaReceber? contaAcao;
+
+    private string? mensagem;
+    private string classeMensagem = "alert-success";
+
+    private record ResumoCards(decimal Pendente, int QtdPendente, decimal Atrasado, int QtdAtrasado, decimal Recebido, int QtdRecebido);
+    private ResumoCards? resumo;
+
+    protected override async Task OnInitializedAsync()
+    {
+        clientes = await ServicoCliente.ListarAsync(somenteAtivos: true);
+        formasPagamento = await ServicoFormaPagamento.ListarAsync(somenteAtivos: true);
+        await CarregarAsync();
+    }
+
+    private async Task CarregarAsync()
+    {
+        StatusContaReceber? status = filtroStatus switch
+        {
+            "Pendente"  => StatusContaReceber.Pendente,
+            "Recebido"  => StatusContaReceber.Recebido,
+            "Cancelado" => StatusContaReceber.Cancelado,
+            _ => null
+        };
+
+        DateOnly? vencAte = filtroStatus == "Atrasado"
+            ? DateOnly.FromDateTime(DateTime.Today.AddDays(-1))
+            : filtroVencAte;
+
+        StatusContaReceber? statusQuery = filtroStatus == "Atrasado"
+            ? StatusContaReceber.Pendente
+            : status;
+
+        itens = await Servico.ListarAsync(
+            status: statusQuery,
+            vencimentoDe: filtroVencDe,
+            vencimentoAte: vencAte,
+            clienteId: filtroClienteId > 0 ? filtroClienteId : null);
+
+        var todos = await Servico.ListarAsync();
+        resumo = new ResumoCards(
+            Pendente: todos.Where(c => c.Status == StatusContaReceber.Pendente && !c.Atrasado).Sum(c => c.Valor),
+            QtdPendente: todos.Count(c => c.Status == StatusContaReceber.Pendente && !c.Atrasado),
+            Atrasado: todos.Where(c => c.Atrasado).Sum(c => c.Valor),
+            QtdAtrasado: todos.Count(c => c.Atrasado),
+            Recebido: itens.Where(c => c.Status == StatusContaReceber.Recebido).Sum(c => c.ValorRecebido ?? 0),
+            QtdRecebido: itens.Count(c => c.Status == StatusContaReceber.Recebido)
+        );
+    }
+
+    private void LimparFiltros()
+    {
+        filtroStatus = ""; filtroVencDe = null; filtroVencAte = null; filtroClienteId = 0;
+        _ = CarregarAsync();
+    }
+
+    private void AbrirNova()
+    {
+        editando = new ContaReceber
+        {
+            DataEmissao = DateOnly.FromDateTime(DateTime.Today),
+            DataVencimento = DateOnly.FromDateTime(DateTime.Today),
+            Ativo = true
+        };
+        erro = null; modalAberto = true;
+    }
+
+    private void AbrirEdicao(ContaReceber c)
+    {
+        editando = new ContaReceber
+        {
+            Id = c.Id, Descricao = c.Descricao, ClienteId = c.ClienteId,
+            VendaId = c.VendaId, Valor = c.Valor,
+            DataEmissao = c.DataEmissao, DataVencimento = c.DataVencimento,
+            Observacao = c.Observacao, Status = c.Status, Ativo = c.Ativo
+        };
+        erro = null; modalAberto = true;
+    }
+
+    private void FecharModal() => modalAberto = false;
+
+    private async Task SalvarAsync()
+    {
+        salvando = true; erro = null;
+        try
+        {
+            await Servico.SalvarAsync(editando);
+            modalAberto = false;
+            await CarregarAsync();
+        }
+        catch (Exception ex) { erro = MensagensErro.Para(ex); }
+        finally { salvando = false; }
+    }
+
+    private void AbrirRecebimento(ContaReceber c)
+    {
+        contaRecebendo = c;
+        recDataRecebimento = DateOnly.FromDateTime(DateTime.Today);
+        recValorRecebido = c.Valor;
+        recFormaPagamentoId = null;
+        erroRecebimento = null;
+        modalRecebimentoAberto = true;
+    }
+
+    private async Task ConfirmarRecebimentoAsync()
+    {
+        if (contaRecebendo is null) return;
+        salvando = true; erroRecebimento = null;
+        try
+        {
+            await Servico.RegistrarRecebimentoAsync(
+                contaRecebendo.Id, recDataRecebimento, recValorRecebido, recFormaPagamentoId);
+            modalRecebimentoAberto = false;
+            mensagem = $"Recebimento de {recValorRecebido:C} registrado.";
+            classeMensagem = "alert-success";
+            await CarregarAsync();
+        }
+        catch (Exception ex) { erroRecebimento = MensagensErro.Para(ex); }
+        finally { salvando = false; }
+    }
+
+    private void AbrirCancelar(ContaReceber c) { contaAcao = c; erroConfirm = null; confirmCancelarAberto = true; }
+
+    private async Task ConfirmarCancelarAsync()
+    {
+        if (contaAcao is null) return;
+        salvando = true; erroConfirm = null;
+        try
+        {
+            await Servico.CancelarAsync(contaAcao.Id);
+            confirmCancelarAberto = false;
+            await CarregarAsync();
+        }
+        catch (Exception ex) { erroConfirm = MensagensErro.Para(ex); }
+        finally { salvando = false; }
+    }
+
+    private void AbrirExcluir(ContaReceber c) { contaAcao = c; erroConfirm = null; confirmExcluirAberto = true; }
+
+    private async Task ConfirmarExcluirAsync()
+    {
+        if (contaAcao is null) return;
+        salvando = true; erroConfirm = null;
+        try
+        {
+            await Servico.ExcluirAsync(contaAcao.Id);
+            confirmExcluirAberto = false;
+            await CarregarAsync();
+        }
+        catch (Exception ex) { erroConfirm = MensagensErro.Para(ex); }
+        finally { salvando = false; }
+    }
+
+    private RenderFragment BadgeStatus(ContaReceber c) => c.Status switch
+    {
+        StatusContaReceber.Recebido  => @<span class="badge bg-success">Recebido</span>,
+        StatusContaReceber.Cancelado => @<span class="badge bg-secondary">Cancelado</span>,
+        _ when c.Atrasado            => @<span class="badge bg-danger">Atrasado</span>,
+        _                            => @<span class="badge bg-warning text-dark">Pendente</span>
+    };
+}

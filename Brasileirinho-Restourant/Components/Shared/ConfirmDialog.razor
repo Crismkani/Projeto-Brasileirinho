@@ -1,0 +1,58 @@
+@if (Visivel)
+{
+    <div class="modal-backdrop fade show" style="z-index: 1085;"></div>
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true"
+         style="z-index: 1090;">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@Titulo</h5>
+                    <button type="button" class="btn-close" @onclick="AoCancelar"></button>
+                </div>
+                <div class="modal-body">
+                    @ChildContent
+                    @if (!string.IsNullOrWhiteSpace(MensagemErro))
+                    {
+                        <div class="alert alert-danger mt-2 mb-0 py-2">@MensagemErro</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="AoCancelar"
+                            disabled="@Processando">
+                        @TextoCancelar
+                    </button>
+                    <button type="button" class="btn @ClasseBotaoConfirmar" @onclick="AoConfirmar"
+                            disabled="@Processando">
+                        @if (Processando)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        @TextoConfirmar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    public enum CorAcao { Perigo, Aviso, Padrao }
+
+    [Parameter] public bool Visivel { get; set; }
+    [Parameter] public string Titulo { get; set; } = "Confirmar";
+    [Parameter] public string TextoConfirmar { get; set; } = "Confirmar";
+    [Parameter] public string TextoCancelar { get; set; } = "Cancelar";
+    [Parameter] public string? MensagemErro { get; set; }
+    [Parameter] public bool Processando { get; set; }
+    [Parameter] public CorAcao Cor { get; set; } = CorAcao.Perigo;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public EventCallback AoConfirmar { get; set; }
+    [Parameter] public EventCallback AoCancelar { get; set; }
+
+    private string ClasseBotaoConfirmar => Cor switch
+    {
+        CorAcao.Perigo  => "btn-danger",
+        CorAcao.Aviso   => "btn-warning",
+        _               => "btn-primary"
+    };
+}

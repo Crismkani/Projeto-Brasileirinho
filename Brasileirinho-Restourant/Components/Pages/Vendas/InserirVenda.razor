@@ -1,0 +1,436 @@
+@page "/vendas/inserir"
+@rendermode InteractiveServer
+
+@inject IServicoBase<Produto> ServicoProduto
+@inject IServicoBase<FormaPagamento> ServicoFormaPagamento
+@inject IServicoBase<CondicaoPagamento> ServicoCondicaoPagamento
+@inject IServicoVenda ServicoVenda
+@inject NavigationManager Nav
+
+<PageTitle>Nova Venda</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">Inserir Venda</h1>
+    <small class="text-muted">@DateTime.Now.ToString("dd/MM/yyyy HH:mm")</small>
+</div>
+
+@if (!string.IsNullOrEmpty(mensagem))
+{
+    <div class="alert @classeMensagem alert-dismissible">
+        @mensagem
+        <button type="button" class="btn-close" @onclick="() => mensagem = null"></button>
+    </div>
+}
+
+<div class="row g-3">
+    <div class="col-lg-8">
+
+        <div class="card shadow-sm mb-3">
+            <div class="card-header"><strong>Adicionar item</strong></div>
+            <div class="card-body">
+
+                @if (produtoSelecionado is not null)
+                {
+                    <div class="d-flex align-items-center mb-3 p-2 bg-light rounded border">
+                        @if (!string.IsNullOrEmpty(produtoSelecionado.FotoUrl))
+                        {
+                            <img src="@produtoSelecionado.FotoUrl" alt="@produtoSelecionado.Nome"
+                                 style="width: 72px; height: 72px; object-fit: cover; border-radius: 6px;"
+                                 class="border bg-white me-3" />
+                        }
+                        else
+                        {
+                            <div style="width: 72px; height: 72px;"
+                                 class="border bg-white rounded d-flex align-items-center justify-content-center text-muted small me-3">
+                                sem foto
+                            </div>
+                        }
+                        <div>
+                            <strong class="d-block fs-6">@produtoSelecionado.Nome</strong>
+                            <span class="text-muted small">
+                                @(produtoSelecionado.PermiteFracionamento
+                                    ? $"{produtoSelecionado.PrecoKg:C}/KG"
+                                    : $"{produtoSelecionado.ValorVenda:C}/UN")
+                            </span>
+                        </div>
+                    </div>
+                }
+
+                <div class="row g-2 align-items-end">
+
+                    <div class="col-md-7">
+                        <label class="form-label">Produto</label>
+                        <select class="form-select" @bind="produtoIdSelecionado" @bind:after="AoMudarProduto">
+                            <option value="0">— Selecione um produto —</option>
+                            @foreach (var p in produtos)
+                            {
+                                <option value="@p.Id">
+                                    @p.Nome
+                                    @(p.PermiteFracionamento
+                                        ? $" — {p.PrecoKg:C}/KG"
+                                        : $" — {p.ValorVenda:C}/UN")
+                                </option>
+                            }
+                        </select>
+                    </div>
+
+                    @if (produtoSelecionado is null)
+                    {
+                        <div class="col-md-5">
+                            <small class="text-muted">Selecione um produto para informar a quantidade ou peso.</small>
+                        </div>
+                    }
+                    else if (produtoSelecionado.PermiteFracionamento)
+                    {
+                        <div class="col-md-3">
+                            <label class="form-label">Peso bruto (KG) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.001" class="form-control"
+                                   @bind="pesoBrutoEdit"
+                                   @bind:event="oninput"
+                                   @bind:after="RecalcularSubtotalEdit"
+                                   @bind:culture="System.Globalization.CultureInfo.InvariantCulture" />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Tara (KG)</label>
+                            <input type="number" step="0.001" class="form-control"
+                                   @bind="taraEdit"
+                                   @bind:event="oninput"
+                                   @bind:after="RecalcularSubtotalEdit"
+                                   @bind:culture="System.Globalization.CultureInfo.InvariantCulture" />
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="col-md-3">
+                            <label class="form-label">Quantidade <span class="text-danger">*</span></label>
+                            <input type="number" step="1" min="1" class="form-control"
+                                   @bind="quantidadeEdit"
+                                   @bind:event="oninput"
+                                   @bind:after="RecalcularSubtotalEdit" />
+                        </div>
+                    }
+                </div>
+
+                @if (produtoSelecionado is not null)
+                {
+                    <div class="row g-2 mt-2">
+                        <div class="col-md-12">
+                            <div class="alert alert-secondary mb-0 py-2">
+                                @if (produtoSelecionado.PermiteFracionamento)
+                                {
+                                    <small class="d-block">
+                                        Fórmula: <code>(@pesoBrutoEdit.ToString("N3") - @taraEdit.ToString("N3")) × @produtoSelecionado.PrecoKg.ToString("C")</code>
+                                        — Peso líquido: <strong>@PesoLiquidoEdit.ToString("N3") KG</strong>
+                                    </small>
+                                }
+                                else
+                                {
+                                    <small class="d-block">
+                                        Fórmula: <code>@quantidadeEdit × @produtoSelecionado.ValorVenda.ToString("C")</code>
+                                    </small>
+                                }
+                                <strong class="fs-5">Subtotal: @subtotalEdit.ToString("C")</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <button class="btn btn-success w-100" @onclick="AdicionarItem"
+                                    disabled="@(!PodeAdicionar)">
+                                Adicionar à venda
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header"><strong>Itens da venda</strong></div>
+            <div class="table-responsive">
+                <table class="table table-striped mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>Produto</th>
+                            <th class="text-end">Qtd / Peso</th>
+                            <th class="text-end">Preço Unit.</th>
+                            <th class="text-end">Subtotal</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (venda.Itens.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">
+                                    Nenhum item adicionado.
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            int idx = 1;
+                            @foreach (var it in venda.Itens)
+                            {
+                                <tr>
+                                    <td>@(idx++)</td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            @{ var foto = FotoProduto(it.ProdutoId); }
+                                            @if (!string.IsNullOrEmpty(foto))
+                                            {
+                                                <img src="@foto" alt=""
+                                                     style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;" />
+                                            }
+                                            <span>@(NomeProduto(it.ProdutoId))</span>
+                                        </div>
+                                    </td>
+                                    <td class="text-end">
+                                        @if (it.Fracionado)
+                                        {
+                                            @($"{it.PesoBruto - it.Tara:N3} KG")
+                                            <small class="text-muted d-block">
+                                                Bruto @it.PesoBruto.ToString("N3") - Tara @it.Tara.ToString("N3")
+                                            </small>
+                                        }
+                                        else
+                                        {
+                                            @it.Quantidade.ToString("N0")
+                                        }
+                                    </td>
+                                    <td class="text-end">@it.PrecoUnitario.ToString("C")</td>
+                                    <td class="text-end fw-semibold">@it.Subtotal.ToString("C")</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-danger"
+                                                @onclick="() => RemoverItem(it)">
+                                            ×
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header"><strong>Totais</strong></div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Subtotal</span>
+                    <strong>@venda.SubtotalItens.ToString("C")</strong>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small mb-0">Desconto</label>
+                    <input type="number" step="0.01" class="form-control form-control-sm"
+                           @bind="venda.Desconto" @bind:event="oninput" @bind:after="RecalcularTotal"
+                           @bind:culture="System.Globalization.CultureInfo.InvariantCulture" />
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small mb-0">Acréscimo</label>
+                    <input type="number" step="0.01" class="form-control form-control-sm"
+                           @bind="venda.Acrescimo" @bind:event="oninput" @bind:after="RecalcularTotal"
+                           @bind:culture="System.Globalization.CultureInfo.InvariantCulture" />
+                </div>
+                <hr />
+                <div class="d-flex justify-content-between fs-4">
+                    <span>TOTAL</span>
+                    <strong class="text-primary">@venda.ValorTotal.ToString("C")</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-3">
+            <div class="card-header"><strong>Pagamento</strong></div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <label class="form-label small mb-0">Forma de pagamento</label>
+                    <select class="form-select" @bind="venda.FormaPagamentoId">
+                        <option value="">— Selecione —</option>
+                        @foreach (var f in formasPagamento)
+                        {
+                            <option value="@f.Id">@f.Nome</option>
+                        }
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small mb-0">Condição de pagamento</label>
+                    <select class="form-select" @bind="venda.CondicaoPagamentoId">
+                        <option value="">— Selecione —</option>
+                        @foreach (var c in condicoesPagamento)
+                        {
+                            <option value="@c.Id">@c.Nome</option>
+                        }
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small mb-0">Valor pago</label>
+                    <input type="number" step="0.01" class="form-control"
+                           @bind="venda.ValorPago" @bind:event="oninput"
+                           @bind:culture="System.Globalization.CultureInfo.InvariantCulture" />
+                </div>
+                <div class="d-flex justify-content-between mt-2">
+                    <span>Troco</span>
+                    <strong class="@(Troco < 0 ? "text-danger" : "text-success")">
+                        @Troco.ToString("C")
+                    </strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-grid gap-2">
+            <button class="btn btn-primary btn-lg" @onclick="FinalizarAsync"
+                    disabled="@(salvando || venda.Itens.Count == 0)">
+                @if (salvando)
+                {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                }
+                Finalizar Venda
+            </button>
+            <button class="btn btn-outline-secondary" @onclick="Cancelar" disabled="@salvando">
+                Cancelar
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private IReadOnlyList<Produto> produtos = Array.Empty<Produto>();
+    private IReadOnlyList<FormaPagamento> formasPagamento = Array.Empty<FormaPagamento>();
+    private IReadOnlyList<CondicaoPagamento> condicoesPagamento = Array.Empty<CondicaoPagamento>();
+
+    private Venda venda = new();
+
+    private long produtoIdSelecionado;
+    private Produto? produtoSelecionado;
+    private decimal pesoBrutoEdit;
+    private decimal taraEdit;
+    private int quantidadeEdit = 1;
+    private decimal subtotalEdit;
+
+    private bool salvando;
+    private string? mensagem;
+    private string classeMensagem = "alert-success";
+
+    protected override async Task OnInitializedAsync()
+    {
+        produtos = await ServicoProduto.ListarAsync(somenteAtivos: true);
+        formasPagamento = await ServicoFormaPagamento.ListarAsync(somenteAtivos: true);
+        condicoesPagamento = await ServicoCondicaoPagamento.ListarAsync(somenteAtivos: true);
+    }
+
+    private decimal PesoLiquidoEdit => Math.Max(pesoBrutoEdit - taraEdit, 0m);
+
+    private decimal Troco => venda.ValorPago - venda.ValorTotal;
+
+    private bool PodeAdicionar
+        => produtoSelecionado is not null
+           && (produtoSelecionado.PermiteFracionamento
+               ? PesoLiquidoEdit > 0m
+               : quantidadeEdit > 0)
+           && subtotalEdit > 0m;
+
+    private string NomeProduto(long id)
+        => produtos.FirstOrDefault(p => p.Id == id)?.Nome ?? "—";
+
+    private string? FotoProduto(long id)
+        => produtos.FirstOrDefault(p => p.Id == id)?.FotoUrl;
+
+    private void AoMudarProduto()
+    {
+        produtoSelecionado = produtos.FirstOrDefault(p => p.Id == produtoIdSelecionado);
+
+        if (produtoSelecionado is null)
+        {
+            pesoBrutoEdit = taraEdit = 0m;
+            quantidadeEdit = 1;
+        }
+        else
+        {
+            taraEdit = produtoSelecionado.Tara;
+            pesoBrutoEdit = 0m;
+            quantidadeEdit = 1;
+        }
+
+        RecalcularSubtotalEdit();
+    }
+
+    private void RecalcularSubtotalEdit()
+    {
+        if (produtoSelecionado is null)
+        {
+            subtotalEdit = 0m;
+            return;
+        }
+
+        var simulacao = new VendaItem
+        {
+            ProdutoId = produtoSelecionado.Id,
+            Fracionado = produtoSelecionado.PermiteFracionamento,
+            PesoBruto = pesoBrutoEdit,
+            Tara = taraEdit,
+            Quantidade = quantidadeEdit,
+            PrecoUnitario = produtoSelecionado.PermiteFracionamento
+                ? produtoSelecionado.PrecoKg
+                : produtoSelecionado.ValorVenda
+        };
+        simulacao.RecalcularSubtotal();
+        subtotalEdit = simulacao.Subtotal;
+    }
+
+    private void AdicionarItem()
+    {
+        if (!PodeAdicionar || produtoSelecionado is null) return;
+
+        var item = new VendaItem
+        {
+            ProdutoId = produtoSelecionado.Id,
+            Fracionado = produtoSelecionado.PermiteFracionamento,
+            PesoBruto = pesoBrutoEdit,
+            Tara = taraEdit,
+            Quantidade = quantidadeEdit,
+            PrecoUnitario = produtoSelecionado.PermiteFracionamento
+                ? produtoSelecionado.PrecoKg
+                : produtoSelecionado.ValorVenda
+        };
+        item.RecalcularSubtotal();
+
+        venda.Itens.Add(item);
+        RecalcularTotal();
+
+        produtoIdSelecionado = 0;
+        produtoSelecionado = null;
+        pesoBrutoEdit = taraEdit = subtotalEdit = 0m;
+        quantidadeEdit = 1;
+    }
+
+    private void RemoverItem(VendaItem item)
+    {
+        venda.Itens.Remove(item);
+        RecalcularTotal();
+    }
+
+    private void RecalcularTotal() => venda.RecalcularTotal();
+
+    private async Task FinalizarAsync()
+    {
+        salvando = true; mensagem = null;
+        try
+        {
+            await ServicoVenda.FinalizarAsync(venda);
+            classeMensagem = "alert-success";
+            mensagem = $"Venda #{venda.Id} finalizada — Total {venda.ValorTotal:C}.";
+            venda = new Venda();
+        }
+        catch (Exception ex)
+        {
+            classeMensagem = "alert-danger";
+            mensagem = ex.Message;
+        }
+        finally { salvando = false; }
+    }
+
+    private void Cancelar() => Nav.NavigateTo("/", forceLoad: false);
+}

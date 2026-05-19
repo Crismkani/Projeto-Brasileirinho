@@ -1,0 +1,104 @@
+@if (Visivel)
+{
+    <div class="modal-backdrop fade show" style="z-index: @(ZIndexBase - 5)"></div>
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true"
+         style="z-index: @ZIndexBase">
+        <div class="modal-dialog @(Tamanho == TamanhoModal.Grande ? "modal-lg" : "")" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@Titulo</h5>
+                    <button type="button" class="btn-close" aria-label="Fechar" @onclick="AoFechar"></button>
+                </div>
+                <div class="modal-body">
+                    @if (aguardandoConfirmacao)
+                    {
+                        <div class="alert alert-warning py-2">
+                            <strong>Confirmar a edição?</strong>
+                            Os dados serão atualizados no banco.
+                        </div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(MensagemErro))
+                    {
+                        <div class="alert alert-danger py-2">@MensagemErro</div>
+                    }
+                    @ChildContent
+                </div>
+                <div class="modal-footer">
+                    @if (aguardandoConfirmacao)
+                    {
+                        <button type="button" class="btn btn-secondary" @onclick="VoltarConfirmacao"
+                                disabled="@Salvando">
+                            Voltar
+                        </button>
+                        <button type="button" class="btn btn-warning" @onclick="ConfirmarSalvar"
+                                disabled="@Salvando">
+                            @if (Salvando)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            Confirmar alteração
+                        </button>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-secondary" @onclick="AoFechar">Cancelar</button>
+                        <button type="button" class="btn btn-primary" @onclick="TentarConfirmar"
+                                disabled="@Salvando">
+                            @if (Salvando)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            @TextoConfirmar
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    public enum TamanhoModal { Padrao, Grande }
+    public enum CamadaModal { Primaria, Secundaria }
+
+    [Parameter] public bool Visivel { get; set; }
+    [Parameter] public string Titulo { get; set; } = "Editar";
+    [Parameter] public string TextoConfirmar { get; set; } = "Salvar";
+    [Parameter] public string? MensagemErro { get; set; }
+    [Parameter] public bool Salvando { get; set; }
+    [Parameter] public TamanhoModal Tamanho { get; set; } = TamanhoModal.Padrao;
+    [Parameter] public CamadaModal Camada { get; set; } = CamadaModal.Primaria;
+    [Parameter] public bool ExigeConfirmacao { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+    [Parameter] public EventCallback AoConfirmar { get; set; }
+
+    private bool aguardandoConfirmacao;
+    private bool visivelAnterior;
+
+    private int ZIndexBase => Camada == CamadaModal.Secundaria ? 1075 : 1055;
+
+    protected override void OnParametersSet()
+    {
+        if (!Visivel && visivelAnterior) aguardandoConfirmacao = false;
+        visivelAnterior = Visivel;
+    }
+
+    private async Task TentarConfirmar()
+    {
+        if (ExigeConfirmacao && !aguardandoConfirmacao)
+        {
+            aguardandoConfirmacao = true;
+            return;
+        }
+        await AoConfirmar.InvokeAsync();
+    }
+
+    private async Task ConfirmarSalvar()
+    {
+        await AoConfirmar.InvokeAsync();
+        aguardandoConfirmacao = false;
+    }
+
+    private void VoltarConfirmacao() => aguardandoConfirmacao = false;
+}

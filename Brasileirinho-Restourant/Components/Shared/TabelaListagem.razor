@@ -1,0 +1,65 @@
+@typeparam TItem
+
+<div class="card shadow-sm">
+    @if (!string.IsNullOrWhiteSpace(Titulo))
+    {
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">@Titulo</h5>
+            <span class="badge bg-secondary">@TotalRegistros registro(s)</span>
+        </div>
+    }
+
+    <div class="table-responsive">
+        <table class="table table-striped table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    @foreach (var cabecalho in Cabecalhos)
+                    {
+                        <th scope="col">@cabecalho</th>
+                    }
+                    @if (AcoesTemplate is not null)
+                    {
+                        <th scope="col" class="text-end" style="min-width: 300px; white-space: nowrap;">Ações</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @if (Itens is null || !Itens.Any())
+                {
+                    <tr>
+                        <td colspan="@TotalColunas" class="text-center text-muted py-4">
+                            @MensagemVazio
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var item in Itens)
+                    {
+                        <tr>
+                            @LinhaTemplate(item)
+                            @if (AcoesTemplate is not null)
+                            {
+                                <td class="text-end">
+                                    @AcoesTemplate(item)
+                                </td>
+                            }
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? Titulo { get; set; }
+    [Parameter, EditorRequired] public IEnumerable<TItem>? Itens { get; set; }
+    [Parameter, EditorRequired] public string[] Cabecalhos { get; set; } = Array.Empty<string>();
+    [Parameter, EditorRequired] public RenderFragment<TItem> LinhaTemplate { get; set; } = default!;
+    [Parameter] public RenderFragment<TItem>? AcoesTemplate { get; set; }
+    [Parameter] public string MensagemVazio { get; set; } = "Nenhum registro encontrado.";
+
+    private int TotalRegistros => Itens?.Count() ?? 0;
+    private int TotalColunas => Cabecalhos.Length + (AcoesTemplate is not null ? 1 : 0);
+}

@@ -1,0 +1,114 @@
+@implements IDisposable
+@inject NavigationManager Nav
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand d-flex align-items-center" href="">
+            <img src="img/logo.png" alt="Restaurante Brasileirinho"
+                 class="brand-logo" />
+        </a>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="nav flex-column">
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Início
+            </NavLink>
+        </div>
+
+        <div class="nav-secao">
+            <small>Operação</small>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="vendas/inserir">
+                <Icone Nome="carrinho" Classe="me-2" /> Inserir Venda
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="operacao/estoque">
+                <Icone Nome="caixa" Classe="me-2" /> Estoque
+            </NavLink>
+        </div>
+
+        <div class="nav-secao">
+            <small>Financeiro</small>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="financeiro/contas-pagar">
+                <Icone Nome="dinheiro" Classe="me-2" /> Contas a Pagar
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="financeiro/contas-receber">
+                <Icone Nome="dinheiro" Classe="me-2" /> Contas a Receber
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="financeiro/fluxo-caixa">
+                <Icone Nome="grafico" Classe="me-2" /> Fluxo de Caixa
+            </NavLink>
+        </div>
+
+        <details open="@(EstaEmCadastros ? "open" : null)" class="nav-cadastros">
+            <summary class="nav-link px-3">
+                <span>
+                    <Icone Nome="cadastros" Classe="me-2" /> Cadastros
+                </span>
+            </summary>
+
+            <div class="nav-cadastros-body">
+
+                <div class="nav-subsecao">
+                    <small>Cardápio</small>
+                </div>
+                <NavLinkComMais Href="cadastros/produtos"        Texto="Produtos" />
+                <NavLinkComMais Href="cadastros/categorias"      Texto="Categorias" />
+                <NavLinkComMais Href="cadastros/marcas"          Texto="Marcas" />
+                <NavLinkComMais Href="cadastros/unidades-medida" Texto="Unidades de Medida" />
+
+                <div class="nav-subsecao">
+                    <small>Financeiro</small>
+                </div>
+                <NavLinkComMais Href="cadastros/formas-pagamento"    Texto="Formas de Pagamento" />
+                <NavLinkComMais Href="cadastros/condicoes-pagamento" Texto="Condições de Pagamento" />
+
+                <div class="nav-subsecao">
+                    <small>Pessoas</small>
+                </div>
+                <NavLinkComMais Href="cadastros/clientes"     Texto="Clientes"     IconeNome="conta" />
+                <NavLinkComMais Href="cadastros/fornecedores" Texto="Fornecedores" IconeNome="conta" />
+
+                <div class="nav-subsecao">
+                    <small>Localização</small>
+                </div>
+                <NavLinkComMais Href="cadastros/paises"  Texto="Países" />
+                <NavLinkComMais Href="cadastros/estados" Texto="Estados" />
+                <NavLinkComMais Href="cadastros/cidades" Texto="Cidades" />
+            </div>
+        </details>
+    </nav>
+</div>
+
+@code {
+    private bool EstaEmCadastros =>
+        Nav.ToBaseRelativePath(Nav.Uri)
+           .StartsWith("cadastros/", StringComparison.OrdinalIgnoreCase);
+
+    protected override void OnInitialized()
+        => Nav.LocationChanged += OnLocationChanged;
+
+    private void OnLocationChanged(object? s, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+        => StateHasChanged();
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+}

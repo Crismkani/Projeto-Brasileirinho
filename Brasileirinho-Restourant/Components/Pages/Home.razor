@@ -1,0 +1,328 @@
+@page "/"
+@rendermode InteractiveServer
+
+@using Syncfusion.Blazor.Layouts
+@using Syncfusion.Blazor.Charts
+@using Syncfusion.Blazor.Grids
+
+@inject IServicoFluxoCaixa Servico
+@inject NavigationManager Nav
+
+<PageTitle>Brasileirinho PDV — Visão Geral</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="mb-0">Visão Geral</h1>
+        <small class="text-muted">@inicioMes.ToString("dd/MM/yyyy") a @hoje.ToString("dd/MM/yyyy")</small>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-primary btn-sm" @onclick='() => Nav.NavigateTo("vendas/inserir")'>
+            <Icone Nome="carrinho" Classe="me-1" /> Nova Venda
+        </button>
+        <button class="btn btn-outline-secondary btn-sm" @onclick="CarregarAsync" disabled="@carregando">
+            @if (carregando)
+            {
+                <span class="spinner-border spinner-border-sm me-1"></span>
+            }
+            Atualizar
+        </button>
+    </div>
+</div>
+
+<div class="control-section dashboard-pdv">
+    <SfDashboardLayout Columns="8" CellSpacing="@spacing" CellAspectRatio="@ratio" AllowDragging="false" AllowResizing="false">
+        <DashboardLayoutPanels>
+
+            <DashboardLayoutPanel Column="0" Row="0" SizeX="2" SizeY="1">
+                <ContentTemplate>
+                    <div class="kpi kpi-vendas">
+                        <div class="kpi-valor">@vendasMes.ToString("C")</div>
+                        <div class="kpi-icone"><span class="bi bi-cash-coin"></span></div>
+                        <div class="kpi-rotulo">Vendas no mês</div>
+                    </div>
+                </ContentTemplate>
+            </DashboardLayoutPanel>
+
+            <DashboardLayoutPanel Column="2" Row="0" SizeX="2" SizeY="1">
+                <ContentTemplate>
+                    <div class="kpi kpi-receb">
+                        <div class="kpi-valor">@recebMes.ToString("C")</div>
+                        <div class="kpi-icone"><span class="bi bi-arrow-down-circle"></span></div>
+                        <div class="kpi-rotulo">Recebimentos</div>
+                    </div>
+                </ContentTemplate>
+            </DashboardLayoutPanel>
+
+            <DashboardLayoutPanel Column="4" Row="0" SizeX="2" SizeY="1">
+                <ContentTemplate>
+                    <div class="kpi kpi-pag">
+                        <div class="kpi-valor">@pagMes.ToString("C")</div>
+                        <div class="kpi-icone"><span class="bi bi-arrow-up-circle"></span></div>
+                        <div class="kpi-rotulo">Pagamentos</div>
+                    </div>
+                </ContentTemplate>
+            </DashboardLayoutPanel>
+
+            <DashboardLayoutPanel Column="6" Row="0" SizeX="2" SizeY="1">
+                <ContentTemplate>
+                    <div class="kpi kpi-trans">
+                        <div class="kpi-valor">@qtdVendasMes</div>
+                        <div class="kpi-icone"><span class="bi bi-receipt"></span></div>
+                        <div class="kpi-rotulo">Vendas (qtd.)</div>
+                    </div>
+                </ContentTemplate>
+            </DashboardLayoutPanel>
+
+            <DashboardLayoutPanel Column="0" Row="1" SizeX="4" SizeY="3">
+                <HeaderTemplate>
+                    <span class="titulo">Entradas × Saídas (últimos 6 meses)</span>
+                </HeaderTemplate>
+                <ContentTemplate>
+                    @if (serie.Count == 0)
+                    {
+                        <div class="vazio-painel">Sem dados nos últimos 6 meses.</div>
+                    }
+                    else
+                    {
+                        <SfChart Height="100%" Width="100%" Theme="@chartTheme">
+                            <ChartArea>
+                                <ChartAreaBorder Width="0"></ChartAreaBorder>
+                            </ChartArea>
+                            <ChartPrimaryXAxis ValueType="Syncfusion.Blazor.Charts.ValueType.DateTimeCategory"
+                                               LabelFormat="MMM/yy"
+                                               IntervalType="IntervalType.Months"
+                                               EdgeLabelPlacement="EdgeLabelPlacement.Shift">
+                                <ChartAxisMajorGridLines Width="0"></ChartAxisMajorGridLines>
+                            </ChartPrimaryXAxis>
+                            <ChartPrimaryYAxis LabelFormat="c0">
+                                <ChartAxisLineStyle Width="0"></ChartAxisLineStyle>
+                                <ChartAxisMajorTickLines Width="0"></ChartAxisMajorTickLines>
+                            </ChartPrimaryYAxis>
+                            <ChartTooltipSettings Enable="true"></ChartTooltipSettings>
+                            <ChartLegendSettings Visible="true" Position="Syncfusion.Blazor.Charts.LegendPosition.Top"></ChartLegendSettings>
+                            <ChartSeriesCollection>
+                                <ChartSeries DataSource="@serie" Name="Entradas" XName="Periodo" YName="Entradas"
+                                             Width="2" Opacity="0.5" Type="ChartSeriesType.SplineArea" Fill="#19a974">
+                                </ChartSeries>
+                                <ChartSeries DataSource="@serie" Name="Saídas" XName="Periodo" YName="Saidas"
+                                             Width="2" Opacity="0.5" Type="ChartSeriesType.SplineArea" Fill="#e7040f">
+                                </ChartSeries>
+                            </ChartSeriesCollection>
+                        </SfChart>
+                    }
+                </ContentTemplate>
+            </DashboardLayoutPanel>
+
+            <DashboardLayoutPanel Column="4" Row="1" SizeX="4" SizeY="3">
+                <HeaderTemplate>
+                    <span class="titulo">Despesas por Fornecedor (mês)</span>
+                </HeaderTemplate>
+                <ContentTemplate>
+                    @if (despesas.Count == 0)
+                    {
+                        <div class="vazio-painel">Sem pagamentos registrados no mês.</div>
+                    }
+                    else
+                    {
+                        <SfAccumulationChart Height="100%" Width="100%" EnableAnimation="false"
+                                             EnableSmartLabels="true" Theme="@chartTheme">
+                            <AccumulationChartSeriesCollection>
+                                <AccumulationChartSeries DataSource="@despesas" XName="Fornecedor" YName="Valor"
+                                                         Radius="83%" InnerRadius="50%" Palettes="@paleta">
+                                    <AccumulationDataLabelSettings Visible="true" Name="Fornecedor"
+                                                                   Position="AccumulationLabelPosition.Outside">
+                                        <AccumulationChartConnector Length="10%"></AccumulationChartConnector>
+                                        <AccumulationChartDataLabelFont Size="12px"></AccumulationChartDataLabelFont>
+                                    </AccumulationDataLabelSettings>
+                                </AccumulationChartSeries>
+                            </AccumulationChartSeriesCollection>
+                            <AccumulationChartTooltipSettings Enable="true" Format="${point.x}: <b>${point.y}</b>"></AccumulationChartTooltipSettings>
+                            <AccumulationChartLegendSettings Visible="false"></AccumulationChartLegendSettings>
+                        </SfAccumulationChart>
+                    }
+                </ContentTemplate>
+            </DashboardLayoutPanel>
+
+            <DashboardLayoutPanel Column="0" Row="4" SizeX="8" SizeY="3">
+                <HeaderTemplate>
+                    <span class="titulo">Últimas movimentações</span>
+                </HeaderTemplate>
+                <ContentTemplate>
+                    <SfGrid TValue="MovimentacaoRecente" DataSource="@movimentacoes" Width="100%" Height="100%"
+                            AllowSorting="true" EnableHover="false" AllowPaging="false">
+                        <GridColumns>
+                            <GridColumn Field="@nameof(MovimentacaoRecente.Data)" HeaderText="Data" Width="110"
+                                        Format="dd/MM/yyyy" Type="ColumnType.Date" TextAlign="@TextAlign.Center"></GridColumn>
+                            <GridColumn Field="@nameof(MovimentacaoRecente.Tipo)" HeaderText="Tipo" Width="120">
+                                <Template>
+                                    @{
+                                        var m = context as MovimentacaoRecente;
+                                        if (m is not null)
+                                        {
+                                            var classe = m.Tipo switch
+                                            {
+                                                "Venda" => "badge text-bg-primary",
+                                                "Recebimento" => "badge text-bg-success",
+                                                _ => "badge text-bg-danger"
+                                            };
+                                            <span class="@classe">@m.Tipo</span>
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn Field="@nameof(MovimentacaoRecente.Descricao)" HeaderText="Descrição"
+                                        Width="280"></GridColumn>
+                            <GridColumn Field="@nameof(MovimentacaoRecente.FormaPagamento)" HeaderText="Pagamento"
+                                        Width="140" TextAlign="@TextAlign.Center"></GridColumn>
+                            <GridColumn Field="@nameof(MovimentacaoRecente.Valor)" HeaderText="Valor" Width="120"
+                                        TextAlign="@TextAlign.Right" Format="C">
+                                <Template>
+                                    @{
+                                        var m = context as MovimentacaoRecente;
+                                        if (m is not null)
+                                        {
+                                            var c = m.Entrada ? "valor-entrada" : "valor-saida";
+                                            var sinal = m.Entrada ? "+" : "−";
+                                            <span class="@c">@sinal @m.Valor.ToString("C")</span>
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                        </GridColumns>
+                    </SfGrid>
+                </ContentTemplate>
+            </DashboardLayoutPanel>
+
+        </DashboardLayoutPanels>
+    </SfDashboardLayout>
+</div>
+
+@code {
+    private readonly double[] spacing = new double[] { 15, 15 };
+    private readonly double ratio = 1.6;
+    private readonly Theme chartTheme = Theme.Bootstrap5;
+    private readonly string[] paleta = new[]
+    {
+        "#0d6efd", "#198754", "#dc3545", "#ffc107", "#0dcaf0",
+        "#6610f2", "#fd7e14", "#20c997", "#d63384", "#6c757d"
+    };
+
+    private DateOnly hoje;
+    private DateOnly inicioMes;
+
+    private decimal vendasMes;
+    private decimal recebMes;
+    private decimal pagMes;
+    private int qtdVendasMes;
+    private IReadOnlyList<PontoSerieFluxo> serie = Array.Empty<PontoSerieFluxo>();
+    private IReadOnlyList<DespesaFornecedor> despesas = Array.Empty<DespesaFornecedor>();
+    private IReadOnlyList<MovimentacaoRecente> movimentacoes = Array.Empty<MovimentacaoRecente>();
+    private bool carregando;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        carregando = true;
+        try
+        {
+            hoje = DateOnly.FromDateTime(DateTime.Today);
+            inicioMes = new DateOnly(hoje.Year, hoje.Month, 1);
+
+            var resumoTask = Servico.ObterResumoAsync(inicioMes, hoje);
+            var qtdTask = Servico.ContarVendasAsync(inicioMes, hoje);
+            var serieTask = Servico.ObterSerieMensalAsync(6);
+            var despesasTask = Servico.ObterDespesasPorFornecedorAsync(inicioMes, hoje, 8);
+            var movimentacoesTask = Servico.ObterUltimasMovimentacoesAsync(10);
+
+            await Task.WhenAll(resumoTask, qtdTask, serieTask, despesasTask, movimentacoesTask);
+
+            var resumo = resumoTask.Result;
+            vendasMes = resumo.TotalVendas;
+            recebMes = resumo.TotalRecebimentos;
+            pagMes = resumo.TotalPagamentos;
+            qtdVendasMes = qtdTask.Result;
+            serie = serieTask.Result;
+            despesas = despesasTask.Result;
+            movimentacoes = movimentacoesTask.Result;
+        }
+        finally
+        {
+            carregando = false;
+        }
+    }
+}
+
+<style>
+    .dashboard-pdv .e-dashboardlayout {
+        padding: 0;
+    }
+
+    .dashboard-pdv .e-panel .e-panel-container {
+        border-radius: 0.5rem;
+    }
+
+    .dashboard-pdv .e-panel .e-panel-container .e-panel-header {
+        font-weight: 500;
+        line-height: inherit;
+        padding: 0.5rem 1rem;
+    }
+
+    .dashboard-pdv .titulo {
+        font-size: 0.95rem;
+        font-weight: 500;
+    }
+
+    .dashboard-pdv .vazio-painel {
+        display: flex;
+        height: 100%;
+        align-items: center;
+        justify-content: center;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+
+    .dashboard-pdv .kpi {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-rows: 1fr auto;
+        height: 100%;
+        padding: 1rem 1.25rem;
+        align-items: center;
+    }
+
+    .dashboard-pdv .kpi-valor {
+        font-size: 1.5rem;
+        font-weight: 600;
+        line-height: 1;
+    }
+
+    .dashboard-pdv .kpi-icone {
+        font-size: 1.75rem;
+        opacity: 0.7;
+        align-self: center;
+        justify-self: end;
+    }
+
+    .dashboard-pdv .kpi-rotulo {
+        grid-column: 1 / -1;
+        color: #6c757d;
+        font-size: 0.85rem;
+        margin-top: 0.25rem;
+    }
+
+    .dashboard-pdv .kpi-vendas { color: #0d6efd; }
+    .dashboard-pdv .kpi-receb  { color: #19a974; }
+    .dashboard-pdv .kpi-pag    { color: #dc3545; }
+    .dashboard-pdv .kpi-trans  { color: #6f42c1; }
+
+    .dashboard-pdv .valor-entrada {
+        color: #19a974;
+        font-weight: 600;
+    }
+
+    .dashboard-pdv .valor-saida {
+        color: #dc3545;
+        font-weight: 600;
+    }
+</style>

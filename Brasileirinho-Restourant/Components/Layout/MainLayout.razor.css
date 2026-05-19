@@ -1,0 +1,125 @@
+.page {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
+    min-width: 0;
+}
+
+.sidebar {
+    background-color: #e9ecef;
+    border-right: 1px solid #dee2e6;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+
+/* Edge strip between sidebar and main — drag target + toggle button */
+.sidebar-edge {
+    display: none;
+}
+
+
+@media (min-width: 641px) {
+    .page {
+        flex-direction: row;
+    }
+
+    .sidebar {
+        width: 250px;
+        height: 100vh;
+        position: sticky;
+        top: 0;
+        flex-shrink: 0;
+        transition: width 0.18s ease;
+    }
+
+    /* Drag strip */
+    .sidebar-edge {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 10px;
+        height: 100vh;
+        position: sticky;
+        top: 0;
+        flex-shrink: 0;
+        cursor: col-resize;
+        z-index: 50;
+        overflow: visible;
+        transition: background 0.15s;
+    }
+
+    .sidebar-edge:hover {
+        background: rgba(84, 110, 122, 0.15);
+    }
+
+    .sidebar-edge.dragging {
+        background: rgba(84, 110, 122, 0.3);
+    }
+
+    /* Toggle button sits on the edge boundary */
+    .sidebar-toggle {
+        position: relative;
+        left: 7px;       /* half outside into main content */
+        top: 14px;
+        flex-shrink: 0;
+        width: 20px;
+        height: 44px;
+        padding: 0;
+        border: none;
+        border-radius: 0 6px 6px 0;
+        background: #546E7A;
+        color: #fff;
+        font-size: 1.1rem;
+        line-height: 1;
+        cursor: pointer;
+        box-shadow: 2px 1px 6px rgba(0,0,0,0.22);
+        transition: background 0.15s;
+        z-index: 60;
+    }
+
+    .sidebar-toggle:hover {
+        background: #37474F;
+    }
+
+    /* Collapsed: sidebar shrinks to zero */
+    .page.sidebar-collapsed .sidebar {
+        width: 0 !important;
+        border-right: none;
+        box-shadow: none;
+    }
+
+    /* When collapsed the edge stays at left edge, disable drag cursor */
+    .page.sidebar-collapsed .sidebar-edge {
+        cursor: default;
+    }
+
+    article {
+        padding-left: 2rem !important;
+        padding-right: 1.5rem !important;
+    }
+}
+
+#blazor-error-ui {
+    color-scheme: light only;
+    background: lightyellow;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    box-sizing: border-box;
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+    #blazor-error-ui .dismiss {
+        cursor: pointer;
+        position: absolute;
+        right: 0.75rem;
+        top: 0.5rem;
+    }

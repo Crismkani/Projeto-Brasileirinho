@@ -1,0 +1,153 @@
+@page "/financeiro/fluxo-caixa"
+@rendermode InteractiveServer
+
+@inject IServicoFluxoCaixa Servico
+
+<PageTitle>Fluxo de Caixa</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">Fluxo de Caixa</h1>
+    <small class="text-muted">Atualizado em @DateTime.Now.ToString("dd/MM/yyyy HH:mm")</small>
+</div>
+
+<div class="row g-2 mb-3 align-items-end">
+    <div class="col-auto">
+        <label class="form-label small mb-1">De</label>
+        <input type="date" class="form-control form-control-sm" @bind="de" />
+    </div>
+    <div class="col-auto">
+        <label class="form-label small mb-1">Até</label>
+        <input type="date" class="form-control form-control-sm" @bind="ate" />
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-primary btn-sm" @onclick="CarregarAsync">Atualizar</button>
+    </div>
+    <div class="col-auto">
+        <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-secondary" @onclick="() => DefinirPeriodo(0, 0)">Hoje</button>
+            <button class="btn btn-outline-secondary" @onclick="() => DefinirPeriodo(-6, 0)">7 dias</button>
+            <button class="btn btn-outline-secondary" @onclick="() => DefinirPeriodo(-29, 0)">30 dias</button>
+            <button class="btn btn-outline-secondary" @onclick="DefinirMesAtual">Este mês</button>
+        </div>
+    </div>
+</div>
+
+@if (carregando)
+{
+    <div class="text-center py-5 text-muted">
+        <span class="spinner-border spinner-border-sm me-2"></span> Carregando...
+    </div>
+}
+else if (resumo is not null)
+{
+    <!-- Período -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-primary text-center py-2 h-100">
+                <div class="card-body p-2">
+                    <div class="text-muted small">Vendas no período</div>
+                    <div class="fs-4 fw-bold text-primary">@resumo.TotalVendas.ToString("C")</div>
+                    <small class="text-muted">pagamentos à vista</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success text-center py-2 h-100">
+                <div class="card-body p-2">
+                    <div class="text-muted small">Recebimentos</div>
+                    <div class="fs-4 fw-bold text-success">@resumo.TotalRecebimentos.ToString("C")</div>
+                    <small class="text-muted">contas a receber quitadas</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-danger text-center py-2 h-100">
+                <div class="card-body p-2">
+                    <div class="text-muted small">Pagamentos</div>
+                    <div class="fs-4 fw-bold text-danger">@resumo.TotalPagamentos.ToString("C")</div>
+                    <small class="text-muted">contas a pagar quitadas</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card @(resumo.SaldoPeriodo >= 0 ? "border-success" : "border-danger") text-center py-2 h-100">
+                <div class="card-body p-2">
+                    <div class="text-muted small">Saldo do período</div>
+                    <div class="fs-4 fw-bold @(resumo.SaldoPeriodo >= 0 ? "text-success" : "text-danger")">
+                        @resumo.SaldoPeriodo.ToString("C")
+                    </div>
+                    <small class="text-muted">entradas − saídas</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Projeção -->
+    <h5 class="mb-3 mt-4">Projeção (a partir de hoje)</h5>
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="card border-success-subtle text-center py-2">
+                <div class="card-body p-2">
+                    <div class="text-muted small">A Receber (pendente)</div>
+                    <div class="fs-5 fw-bold text-success">@resumo.ProjetadoReceber.ToString("C")</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-danger-subtle text-center py-2">
+                <div class="card-body p-2">
+                    <div class="text-muted small">A Pagar (pendente)</div>
+                    <div class="fs-5 fw-bold text-danger">@resumo.ProjetadoPagar.ToString("C")</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card @(resumo.SaldoProjetado >= 0 ? "border-success-subtle" : "border-danger-subtle") text-center py-2">
+                <div class="card-body p-2">
+                    <div class="text-muted small">Saldo Projetado</div>
+                    <div class="fs-5 fw-bold @(resumo.SaldoProjetado >= 0 ? "text-success" : "text-danger")">
+                        @resumo.SaldoProjetado.ToString("C")
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="alert alert-light border small mt-2">
+        <strong>Período filtrado:</strong> @de.ToString("dd/MM/yyyy") a @ate.ToString("dd/MM/yyyy") &nbsp;|&nbsp;
+        <strong>Entradas totais:</strong> @((resumo.TotalVendas + resumo.TotalRecebimentos).ToString("C")) &nbsp;|&nbsp;
+        <strong>Saídas totais:</strong> @resumo.TotalPagamentos.ToString("C")
+    </div>
+}
+
+@code {
+    private DateOnly de = DateOnly.FromDateTime(new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1));
+    private DateOnly ate = DateOnly.FromDateTime(DateTime.Today);
+    private ResumoFluxoCaixa? resumo;
+    private bool carregando;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        carregando = true;
+        try { resumo = await Servico.ObterResumoAsync(de, ate); }
+        finally { carregando = false; }
+    }
+
+    private void DefinirPeriodo(int offsetDe, int offsetAte)
+    {
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        de = hoje.AddDays(offsetDe);
+        ate = hoje.AddDays(offsetAte);
+        _ = CarregarAsync();
+    }
+
+    private void DefinirMesAtual()
+    {
+        var hoje = DateTime.Today;
+        de = new DateOnly(hoje.Year, hoje.Month, 1);
+        ate = new DateOnly(hoje.Year, hoje.Month, DateTime.DaysInMonth(hoje.Year, hoje.Month));
+        _ = CarregarAsync();
+    }
+}

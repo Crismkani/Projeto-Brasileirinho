@@ -1,0 +1,360 @@
+@page "/cadastros/cidades"
+@rendermode InteractiveServer
+
+@inject IServicoBase<Cidade> ServicoCidade
+@inject IServicoBase<Estado> ServicoEstado
+@inject IServicoBase<Pais> ServicoPais
+
+<PageTitle>Cidades</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">Cidades</h1>
+    <button class="btn btn-primary" @onclick="AbrirNovo">Novo</button>
+</div>
+
+<div class="row g-2 mb-3">
+    <div class="col-md-6">
+        <input class="form-control" placeholder="Filtrar..."
+               @bind="filtro" @bind:event="oninput" @bind:after="CarregarAsync" />
+    </div>
+    <div class="col-md-3">
+        <div class="form-check mt-2">
+            <input class="form-check-input" type="checkbox" id="ativos"
+                   @bind="apenasAtivos" @bind:after="CarregarAsync" />
+            <label class="form-check-label" for="ativos">Apenas ativos</label>
+        </div>
+    </div>
+</div>
+
+<TabelaListagem TItem="Cidade"
+                Itens="@itens"
+                Cabecalhos="@(new[] { "Id", "Nome", "Cód. IBGE", "Estado", "Ativo" })">
+    <LinhaTemplate>
+        <td>@context.Id</td>
+        <td>@context.Nome</td>
+        <td>@context.CodigoIbge</td>
+        <td>@(NomeEstado(context.EstadoId))</td>
+        <td>
+            @if (context.Ativo)
+            { <span class="badge bg-success">Ativo</span> }
+            else
+            { <span class="badge bg-secondary">Inativo</span> }
+        </td>
+    </LinhaTemplate>
+    <AcoesTemplate>
+        <BotoesAcaoCadastro Ativo="@context.Ativo"
+                            AoEditar="() => AbrirEdicao(context)"
+                            AoInativar="() => InativarAsync(context.Id)"
+                            AoReativar="() => ReativarAsync(context.Id)"
+                            AoExcluir="() => AbrirConfirmExcluir(context)" />
+    </AcoesTemplate>
+</TabelaListagem>
+
+<DialogoDuplicado TItem="Cidade"
+                  Visivel="@dialogoDuplicadoAberto"
+                  Itens="@duplicados"
+                  Processando="@salvando"
+                  AoConfirmar="SalvarMesmoComDuplicado"
+                  AoCancelar="() => dialogoDuplicadoAberto = false" />
+
+<ConfirmDialog Visivel="@confirmExcluirAberto"
+               Titulo="Excluir Cidade"
+               TextoConfirmar="Excluir definitivo"
+               Processando="@excluindo"
+               MensagemErro="@erroExcluir"
+               AoConfirmar="ConfirmarExcluirAsync"
+               AoCancelar="() => confirmExcluirAberto = false">
+    <p>Tem certeza que deseja excluir <strong>@(itemParaExcluir?.Nome)</strong>?</p>
+    <p class="text-muted small mb-0">
+        Cidades vinculadas a clientes/fornecedores não podem ser excluídas — prefira inativar.
+    </p>
+</ConfirmDialog>
+
+<ModalCrud Visivel="@modalAberto"
+           Titulo="@(editando.Id == 0 ? "Nova Cidade" : "Editar Cidade")"
+           MensagemErro="@erro"
+           Salvando="@salvando"
+           ExigeConfirmacao="@(editando.Id != 0)"
+           AoFechar="FecharModal"
+           AoConfirmar="SalvarAsync">
+    <div class="row g-3">
+        <div class="col-md-8">
+            <label class="form-label">Nome <span class="text-danger">*</span></label>
+            <input class="form-control" maxlength="100" @bind="editando.Nome" />
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Código IBGE</label>
+            <input class="form-control" maxlength="10" @bind="editando.CodigoIbge" />
+        </div>
+        <div class="col-md-12">
+            <label class="form-label">Estado <span class="text-danger">*</span></label>
+            <div class="input-group">
+                <select class="form-select" @bind="editando.EstadoId">
+                    <option value="0">— Selecione —</option>
+                    @foreach (var e in estados)
+                    {
+                        <option value="@e.Id">@e.Nome (@e.Uf)</option>
+                    }
+                </select>
+                <button type="button" class="btn btn-outline-primary" title="Adicionar novo estado"
+                        @onclick="AbrirNovoEstado">
+                    + Novo
+                </button>
+            </div>
+        </div>
+        <div class="col-12">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="ativoC" @bind="editando.Ativo" />
+                <label class="form-check-label" for="ativoC">Ativo</label>
+            </div>
+        </div>
+    </div>
+</ModalCrud>
+
+<ModalCrud Visivel="@modalEstadoAberto"
+           Titulo="Novo Estado"
+           Camada="ModalCrud.CamadaModal.Secundaria"
+           MensagemErro="@erroEstado"
+           Salvando="@salvandoEstado"
+           AoFechar="() => modalEstadoAberto = false"
+           AoConfirmar="SalvarEstadoAsync">
+    <div class="row g-3">
+        <div class="col-md-8">
+            <label class="form-label">Nome <span class="text-danger">*</span></label>
+            <input class="form-control" maxlength="100" @bind="novoEstado.Nome" />
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">UF <span class="text-danger">*</span></label>
+            <input class="form-control" maxlength="2" style="text-transform: uppercase"
+                   @bind="novoEstado.Uf" placeholder="SP" />
+        </div>
+        <div class="col-md-12">
+            <label class="form-label">País</label>
+            <div class="input-group">
+                <select class="form-select" @bind="novoEstado.PaisId">
+                    <option value="">— Selecione —</option>
+                    @foreach (var p in paises)
+                    {
+                        <option value="@p.Id">@p.Nome</option>
+                    }
+                </select>
+                <button type="button" class="btn btn-outline-primary"
+                        @onclick="AbrirNovoPais" disabled="@modalPaisAberto">
+                    + Novo
+                </button>
+            </div>
+        </div>
+    </div>
+</ModalCrud>
+
+<ModalCrud Visivel="@modalPaisAberto"
+           Titulo="Novo País"
+           Camada="ModalCrud.CamadaModal.Secundaria"
+           MensagemErro="@erroPais"
+           Salvando="@salvandoPais"
+           AoFechar="() => modalPaisAberto = false"
+           AoConfirmar="SalvarPaisAsync">
+    <div class="row g-3">
+        <div class="col-md-12">
+            <label class="form-label">Nome <span class="text-danger">*</span></label>
+            <input class="form-control" maxlength="100" @bind="novoPais.Nome" />
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Sigla</label>
+            <input class="form-control" maxlength="5" style="text-transform: uppercase"
+                   @bind="novoPais.Sigla" />
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Código</label>
+            <input class="form-control" maxlength="5" @bind="novoPais.Codigo" />
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Nacionalidade</label>
+            <input class="form-control" maxlength="100" @bind="novoPais.Nacionalidade" />
+        </div>
+    </div>
+</ModalCrud>
+
+@code {
+    [Parameter, SupplyParameterFromQuery(Name = "novo")]
+    public string? NovoQuery { get; set; }
+    private string? _novoProcessado;
+
+    protected override void OnParametersSet()
+    {
+        if (NovoQuery is not null && NovoQuery != _novoProcessado)
+        {
+            _novoProcessado = NovoQuery;
+            AbrirNovo();
+        }
+    }
+
+    private IReadOnlyList<Cidade> itens = Array.Empty<Cidade>();
+    private IReadOnlyList<Estado> estados = Array.Empty<Estado>();
+    private IReadOnlyList<Pais> paises = Array.Empty<Pais>();
+    private string? filtro;
+    private bool apenasAtivos;
+    private bool modalAberto;
+    private bool salvando;
+    private string? erro;
+    private Cidade editando = new();
+
+    // Modal Estado
+    private bool modalEstadoAberto;
+    private bool salvandoEstado;
+    private string? erroEstado;
+    private Estado novoEstado = new();
+
+    // Modal País
+    private bool modalPaisAberto;
+    private bool salvandoPais;
+    private string? erroPais;
+    private Pais novoPais = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarEstadosAsync();
+        await CarregarPaisesAsync();
+        await CarregarAsync();
+    }
+
+    private async Task CarregarEstadosAsync()
+        => estados = await ServicoEstado.ListarAsync(somenteAtivos: true);
+
+    private async Task CarregarPaisesAsync()
+        => paises = await ServicoPais.ListarAsync(somenteAtivos: true);
+
+    private async Task CarregarAsync()
+        => itens = await ServicoCidade.ListarAsync(apenasAtivos, filtro);
+
+    private string NomeEstado(long id)
+        => estados.FirstOrDefault(e => e.Id == id)?.Nome ?? "—";
+
+    private void AbrirNovo()
+    {
+        editando = new Cidade { Ativo = true };
+        erro = null; modalAberto = true;
+    }
+
+    private void AbrirEdicao(Cidade c)
+    {
+        editando = new Cidade
+        {
+            Id = c.Id, Nome = c.Nome, CodigoIbge = c.CodigoIbge,
+            EstadoId = c.EstadoId, Ativo = c.Ativo,
+            DataCadastro = c.DataCadastro, UltimaModificacao = c.UltimaModificacao
+        };
+        erro = null; modalAberto = true;
+    }
+
+    private void FecharModal() => modalAberto = false;
+
+    private async Task SalvarAsync()
+    {
+        salvando = true; erro = null;
+        try
+        {
+            if (editando.EstadoId == 0)
+                throw new InvalidOperationException("Selecione um Estado.");
+
+            if (!forcarDuplicado)
+            {
+                var dups = await ServicoCidade.BuscarDuplicadosPorNomeAsync(editando);
+                if (dups.Count > 0) { duplicados = dups; dialogoDuplicadoAberto = true; return; }
+            }
+            forcarDuplicado = false;
+
+            await ServicoCidade.SalvarAsync(editando);
+            modalAberto = false;
+            await CarregarAsync();
+        }
+        catch (Exception ex) { erro = MensagensErro.Para(ex); }
+        finally { salvando = false; }
+    }
+
+    private bool dialogoDuplicadoAberto, forcarDuplicado;
+    private IReadOnlyList<Cidade> duplicados = Array.Empty<Cidade>();
+    private async Task SalvarMesmoComDuplicado()
+    {
+        forcarDuplicado = true; dialogoDuplicadoAberto = false;
+        await SalvarAsync();
+    }
+
+    private async Task InativarAsync(long id) { await ServicoCidade.InativarAsync(id); await CarregarAsync(); }
+    private async Task ReativarAsync(long id) { await ServicoCidade.ReativarAsync(id); await CarregarAsync(); }
+
+    private bool confirmExcluirAberto;
+    private bool excluindo;
+    private string? erroExcluir;
+    private Cidade? itemParaExcluir;
+
+    private void AbrirConfirmExcluir(Cidade item)
+    {
+        itemParaExcluir = item;
+        erroExcluir = null;
+        confirmExcluirAberto = true;
+    }
+
+    private async Task ConfirmarExcluirAsync()
+    {
+        if (itemParaExcluir is null) return;
+        excluindo = true; erroExcluir = null;
+        try
+        {
+            await ServicoCidade.ExcluirDefinitivoAsync(itemParaExcluir.Id);
+            confirmExcluirAberto = false;
+            itemParaExcluir = null;
+            await CarregarAsync();
+        }
+        catch (Exception ex) { erroExcluir = MensagensErro.Para(ex); }
+        finally { excluindo = false; }
+    }
+
+    private void AbrirNovoEstado()
+    {
+        novoEstado = new Estado { Ativo = true };
+        erroEstado = null;
+        modalEstadoAberto = true;
+    }
+
+    private async Task SalvarEstadoAsync()
+    {
+        salvandoEstado = true; erroEstado = null;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(novoEstado.Uf))
+                novoEstado.Uf = novoEstado.Uf.ToUpperInvariant();
+
+            var salvo = await ServicoEstado.SalvarAsync(novoEstado);
+            await CarregarEstadosAsync();
+            editando.EstadoId = salvo.Id;
+            modalEstadoAberto = false;
+        }
+        catch (Exception ex) { erroEstado = ex.Message; }
+        finally { salvandoEstado = false; }
+    }
+
+    private void AbrirNovoPais()
+    {
+        novoPais = new Pais { Ativo = true };
+        erroPais = null;
+        modalPaisAberto = true;
+    }
+
+    private async Task SalvarPaisAsync()
+    {
+        salvandoPais = true; erroPais = null;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(novoPais.Sigla))
+                novoPais.Sigla = novoPais.Sigla.ToUpperInvariant();
+
+            var salvo = await ServicoPais.SalvarAsync(novoPais);
+            await CarregarPaisesAsync();
+            novoEstado.PaisId = salvo.Id;
+            modalPaisAberto = false;
+        }
+        catch (Exception ex) { erroPais = ex.Message; }
+        finally { salvandoPais = false; }
+    }
+}

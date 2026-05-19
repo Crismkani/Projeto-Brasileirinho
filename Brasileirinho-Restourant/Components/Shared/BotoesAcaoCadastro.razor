@@ -1,0 +1,30 @@
+<div class="d-flex gap-2 justify-content-end flex-wrap">
+    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="AoEditar">
+        <Icone Nome="editar" /> Editar
+    </button>
+
+    @if (Ativo)
+    {
+        <button type="button" class="btn btn-sm btn-outline-warning" @onclick="AoInativar">
+            <Icone Nome="bloquear" /> Inativar
+        </button>
+    }
+    else
+    {
+        <button type="button" class="btn btn-sm btn-outline-success" @onclick="AoReativar">
+            <Icone Nome="reativar" /> Reativar
+        </button>
+    }
+
+    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="AoExcluir">
+        <Icone Nome="excluir" /> Excluir
+    </button>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public bool Ativo { get; set; }
+    [Parameter, EditorRequired] public EventCallback AoEditar { get; set; }
+    [Parameter, EditorRequired] public EventCallback AoInativar { get; set; }
+    [Parameter, EditorRequired] public EventCallback AoReativar { get; set; }
+    [Parameter, EditorRequired] public EventCallback AoExcluir { get; set; }
+}
