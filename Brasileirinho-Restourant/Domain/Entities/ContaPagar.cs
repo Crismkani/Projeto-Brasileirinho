@@ -5,7 +5,7 @@ using BrasileirinhoRestourant.Domain.Common;
 namespace BrasileirinhoRestourant.Domain.Entities;
 
 [Table("conta_pagar")]
-public class ContaPagar : EntityBase, IAuditavel
+public class ContaPagar : EntidadeAuditavel
 {
     [Column("fornecedor_id")]
     public long? FornecedorId { get; set; }
@@ -54,9 +54,6 @@ public class ContaPagar : EntityBase, IAuditavel
 
     [StringLength(500), Column("observacao_conta_pagar")]
     public string? Observacao { get; set; }
-
-    public DateTime DataCadastro { get; set; } = DateTime.UtcNow;
-    public DateTime UltimaModificacao { get; set; } = DateTime.UtcNow;
 
     [NotMapped]
     public bool Atrasado =>

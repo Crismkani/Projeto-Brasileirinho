@@ -205,12 +205,11 @@ public class AppDbContext : DbContext
         {
             if (entry.State == EntityState.Added)
             {
-                entry.Entity.DataCadastro = agora;
-                entry.Entity.UltimaModificacao = agora;
+                entry.Entity.MarcarComoNovo(agora);
             }
             else if (entry.State == EntityState.Modified)
             {
-                entry.Entity.UltimaModificacao = agora;
+                entry.Entity.RegistrarModificacao(agora);
             }
         }
     }

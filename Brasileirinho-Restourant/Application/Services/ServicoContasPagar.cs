@@ -92,7 +92,7 @@ public class ServicoContasPagar : IServicoContasPagar
 
         conta.Descricao = conta.Descricao.Trim();
         conta.NumeroDocumento = conta.NumeroDocumento?.Trim();
-        conta.Ativo = true;
+        conta.Ativar();
 
         if (conta.Id == 0)
         {

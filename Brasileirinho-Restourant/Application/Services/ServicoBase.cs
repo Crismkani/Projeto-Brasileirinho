@@ -55,7 +55,7 @@ public class ServicoBase<T> : IServicoBase<T> where T : EntityBase
         var entidade = await Repositorio.ObterPorIdAsync(id, cancellationToken)
             ?? throw new InvalidOperationException($"Entidade #{id} não encontrada.");
 
-        entidade.Ativo = false;
+        entidade.Inativar();
         await Repositorio.AtualizarAsync(entidade, cancellationToken);
     }
 
@@ -64,7 +64,7 @@ public class ServicoBase<T> : IServicoBase<T> where T : EntityBase
         var entidade = await Repositorio.ObterPorIdAsync(id, cancellationToken)
             ?? throw new InvalidOperationException($"Entidade #{id} não encontrada.");
 
-        entidade.Ativo = true;
+        entidade.Ativar();
         await Repositorio.AtualizarAsync(entidade, cancellationToken);
     }
 

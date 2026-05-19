@@ -5,7 +5,7 @@ using BrasileirinhoRestourant.Domain.Common;
 namespace BrasileirinhoRestourant.Domain.Entities;
 
 [Table("condicao_pagamento")]
-public class CondicaoPagamento : EntityBase, IAuditavel
+public class CondicaoPagamento : EntidadeAuditavel
 {
     [Required, StringLength(100), Column("nome_condicao_pagamento")]
     public string Nome { get; set; } = string.Empty;
@@ -17,11 +17,8 @@ public class CondicaoPagamento : EntityBase, IAuditavel
     public int NumeroParcelas { get; set; } = 1;
 
     [Column("prazo_dias_condicao_pagamento")]
-    public int PrazoDias { get; set; } = 0;
+    public int PrazoDias { get; set; }
 
     [Column("taxa_juros_condicao_pagamento", TypeName = "numeric(5,2)")]
-    public decimal TaxaJuros { get; set; } = 0m;
-
-    public DateTime DataCadastro { get; set; } = DateTime.UtcNow;
-    public DateTime UltimaModificacao { get; set; } = DateTime.UtcNow;
+    public decimal TaxaJuros { get; set; }
 }

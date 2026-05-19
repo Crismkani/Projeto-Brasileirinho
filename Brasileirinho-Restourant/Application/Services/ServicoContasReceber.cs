@@ -77,7 +77,7 @@ public class ServicoContasReceber : IServicoContasReceber
         await using var ctx = await _factory.CreateDbContextAsync(ct);
 
         conta.Descricao = conta.Descricao.Trim();
-        conta.Ativo = true;
+        conta.Ativar();
 
         if (conta.Id == 0)
         {

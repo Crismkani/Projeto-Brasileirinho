@@ -8,4 +8,8 @@ public abstract class EntityBase
     public long Id { get; set; }
 
     public bool Ativo { get; set; } = true;
+
+    public void Ativar() => Ativo = true;
+
+    public void Inativar() => Ativo = false;
 }

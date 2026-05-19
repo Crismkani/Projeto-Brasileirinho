@@ -5,7 +5,7 @@ using BrasileirinhoRestourant.Domain.Common;
 namespace BrasileirinhoRestourant.Domain.Entities;
 
 [Table("pais")]
-public class Pais : EntityBase, IAuditavel
+public class Pais : EntidadeAuditavel
 {
     [Required, StringLength(100), Column("nome_pais")]
     public string Nome { get; set; } = string.Empty;
@@ -18,9 +18,6 @@ public class Pais : EntityBase, IAuditavel
 
     [StringLength(100), Column("nacionalidade_pais")]
     public string? Nacionalidade { get; set; }
-
-    public DateTime DataCadastro { get; set; } = DateTime.UtcNow;
-    public DateTime UltimaModificacao { get; set; } = DateTime.UtcNow;
 
     public ICollection<Estado> Estados { get; set; } = new List<Estado>();
 }

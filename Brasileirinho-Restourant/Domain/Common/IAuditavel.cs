@@ -2,6 +2,9 @@ namespace BrasileirinhoRestourant.Domain.Common;
 
 public interface IAuditavel
 {
-    public DateTime DataCadastro { get; set; }
-    public DateTime UltimaModificacao { get; set; }
+    DateTime DataCadastro { get; }
+    DateTime UltimaModificacao { get; }
+
+    void MarcarComoNovo(DateTime quando);
+    void RegistrarModificacao(DateTime quando);
 }
